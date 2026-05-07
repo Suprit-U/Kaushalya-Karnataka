@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    themes.xml — Minimal XML bridge for the Activity window before Compose takes over.
+    Uses android:Theme.Material.NoTitleBar which is always available from the Android SDK.
+    All real app theming is handled by KaushalyaTheme in ui/theme/Theme.kt.
+-->
+<resources>
+    <style name="Theme.KaushalyaKarnataka" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:statusBarColor">@color/status_bar_color</item>
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+
+    <style name="Theme.KaushalyaKarnataka.SplashScreen" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_kaushalya_app</item>
+        <item name="postSplashScreenTheme">@style/Theme.KaushalyaKarnataka</item>
+    </style>
+</resources>

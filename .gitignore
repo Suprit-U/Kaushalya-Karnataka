@@ -1,0 +1,31 @@
+# Built objects
+*.pyc
+*.class
+
+# Build artifacts
+.gradle/
+build/
+app/build/
+
+# IDE files
+.idea/
+*.iml
+.kotlin/
+local.properties
+
+# Log files
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Signing files
+*.jks
+*.keystore
+
+# Google Services
+# app/google-services.json
+
+# Secrets
+secrets.properties

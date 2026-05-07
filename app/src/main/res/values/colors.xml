@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Legacy colors.xml — used only by system UI elements (status bar, splash screen etc.)
+    All app UI colors are defined in ui/theme/Color.kt and applied through KaushalyaTheme.
+-->
+<resources>
+    <!-- Primary brand color (matches Color.kt KaushalyaPrimary) -->
+    <color name="primary">#5E35B1</color>
+    <!-- Used by the splash screen background -->
+    <color name="splash_background">#FFFFFF</color>
+    <!-- Status bar and system bar tint -->
+    <color name="status_bar_color">#5E35B1</color>
+</resources>
