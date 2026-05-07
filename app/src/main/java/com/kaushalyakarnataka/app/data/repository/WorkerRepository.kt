@@ -19,6 +19,14 @@ interface WorkerRepository {
     suspend fun getWorkersByCategory(category: ServiceCategory): UiState<List<Worker>>
     suspend fun updateAvailability(uid: String, isAvailable: Boolean): UiState<Unit>
     suspend fun updateWorkerProfile(uid: String, updates: Map<String, Any>): UiState<Unit>
+    suspend fun updateWorkerProfileFields(
+        uid: String,
+        name: String,
+        phone: String,
+        bio: String,
+        role: String,
+        category: ServiceCategory
+    ): UiState<Unit>
 }
 
 class WorkerRepositoryImpl @Inject constructor(
@@ -104,6 +112,28 @@ class WorkerRepositoryImpl @Inject constructor(
     override suspend fun updateWorkerProfile(uid: String, updates: Map<String, Any>): UiState<Unit> {
         return try {
             workersRef.document(uid).update(updates).await()
+            UiState.Success(Unit)
+        } catch (e: Exception) {
+            UiState.Error(e.message ?: "Failed to update profile")
+        }
+    }
+
+    override suspend fun updateWorkerProfileFields(
+        uid: String,
+        name: String,
+        phone: String,
+        bio: String,
+        role: String,
+        category: ServiceCategory
+    ): UiState<Unit> {
+        return try {
+            workersRef.document(uid).update(mapOf(
+                "name" to name,
+                "phone" to phone,
+                "bio" to bio,
+                "role" to role,
+                "category" to category.name
+            )).await()
             UiState.Success(Unit)
         } catch (e: Exception) {
             UiState.Error(e.message ?: "Failed to update profile")

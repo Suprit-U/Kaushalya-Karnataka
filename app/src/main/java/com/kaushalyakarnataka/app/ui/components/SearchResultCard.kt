@@ -62,8 +62,9 @@ fun SearchResultCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+                    val priceText = if (worker.pricePerHour > 0) "${CurrencyUtils.formatRupees(worker.pricePerHour)}/hr" else "Contact for price"
                     Text(
-                        text = "${CurrencyUtils.formatRupees(worker.pricePerHour)}/hr",
+                        text = priceText,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
@@ -80,17 +81,19 @@ fun SearchResultCard(
                 
                 Spacer(modifier = Modifier.height(4.dp))
                 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = "Rating",
-                        tint = Warning,
-                        modifier = Modifier.width(14.dp)
-                    )
-                    Text(
-                        text = " ${worker.rating} (${worker.reviewCount})",
-                        style = MaterialTheme.typography.labelSmall
-                    )
+                if (worker.rating > 0 && worker.reviewCount > 0) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "Rating",
+                            tint = Warning,
+                            modifier = Modifier.width(14.dp)
+                        )
+                        Text(
+                            text = " ${String.format("%.1f", worker.rating)} (${worker.reviewCount})",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
                 }
             }
         }

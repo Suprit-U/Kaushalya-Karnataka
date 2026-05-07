@@ -349,18 +349,20 @@ fun TopWorkerCard(worker: Worker, onClick: () -> Unit) {
             ) {
                 AvatarComponent(imageUrl = worker.avatarUrl, name = worker.name, size = 64.dp)
                 // Rating badge
-                Surface(
-                    modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0x99000000)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                if (worker.rating > 0 && worker.reviewCount > 0) {
+                    Surface(
+                        modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0x99000000)
                     ) {
-                        Icon(Icons.Filled.Star, null, tint = Color(0xFFFCD34D), modifier = Modifier.size(12.dp))
-                        Text(worker.rating.toString(), style = MaterialTheme.typography.labelSmall, color = Color.White)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Icon(Icons.Filled.Star, null, tint = Color(0xFFFCD34D), modifier = Modifier.size(12.dp))
+                            Text(String.format("%.1f", worker.rating), style = MaterialTheme.typography.labelSmall, color = Color.White)
+                        }
                     }
                 }
             }
@@ -369,13 +371,16 @@ fun TopWorkerCard(worker: Worker, onClick: () -> Unit) {
                 Text(worker.category.displayName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    val priceText = if (worker.pricePerHour > 0) CurrencyUtils.formatRupees(worker.pricePerHour) + "/hr" else "Contact for price"
                     Text(
-                        CurrencyUtils.formatRupees(worker.pricePerHour) + "/hr",
+                        priceText,
                         style = MaterialTheme.typography.labelMedium,
                         color = Primary,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (worker.distanceKm > 0) {
+                        Text("${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Button(
@@ -413,20 +418,33 @@ fun WorkerListCard(worker: Worker, onClick: () -> Unit, modifier: Modifier = Mod
                 }
                 Text(worker.category.displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                    Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
-                    Text(" ${worker.rating} (${worker.reviewCount})", style = MaterialTheme.typography.labelSmall)
-                    Spacer(Modifier.width(8.dp))
-                    Text("• ${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (worker.rating > 0 && worker.reviewCount > 0) {
+                        Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
+                        Text(" ${String.format("%.1f", worker.rating)} (${worker.reviewCount})", style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (worker.distanceKm > 0) {
+                        Spacer(Modifier.width(8.dp))
+                        Text("• ${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    CurrencyUtils.formatRupees(worker.pricePerHour),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Primary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text("/hr", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (worker.pricePerHour > 0) {
+                    Text(
+                        CurrencyUtils.formatRupees(worker.pricePerHour),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text("/hr", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(
+                        "Contact for price",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

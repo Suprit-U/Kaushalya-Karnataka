@@ -16,9 +16,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.kaushalyakarnataka.app.data.model.ServiceCategory
 import com.kaushalyakarnataka.app.ui.components.*
 import com.kaushalyakarnataka.app.ui.theme.*
-import com.kaushalyakarnataka.app.utils.CurrencyUtils
 import com.kaushalyakarnataka.app.utils.UiState
 import com.kaushalyakarnataka.app.viewmodel.AuthViewModel
 import com.kaushalyakarnataka.app.viewmodel.WorkerProfileViewModel
@@ -35,7 +35,6 @@ fun WorkerSelfProfileScreen(
     LaunchedEffect(Unit) { viewModel.loadWorkerProfile() }
 
     val profileState by viewModel.workerState.collectAsState()
-    val servicesState by viewModel.servicesState.collectAsState()
     val themeState = LocalThemeState.current
     var showEditDialog by remember { mutableStateOf(false) }
     var showNotifDialog by remember { mutableStateOf(false) }
@@ -165,9 +164,8 @@ fun WorkerSelfProfileScreen(
                             Row(modifier = Modifier.fillMaxWidth()) {
                                 listOf(
                                     Triple("${worker.reviewCount}", "Reviews", Icons.Default.Reviews),
-                                    Triple("${worker.experienceYears}y", "Experience", Icons.Default.WorkHistory),
-                                    Triple("${worker.successRate}%", "Success", Icons.Default.CheckCircle),
-                                    Triple(CurrencyUtils.formatRupees(worker.pricePerHour) + "/h", "Rate", Icons.Default.Payments),
+                                    Triple(worker.category.displayName, "Role", Icons.Default.Work),
+                                    Triple(if (worker.isAvailable) "Available" else "Busy", "Status", Icons.Default.EventAvailable),
                                 ).forEachIndexed { i, (val_, label, icon) ->
                                     Column(
                                         modifier = Modifier.weight(1f).padding(vertical = 14.dp),
@@ -178,7 +176,7 @@ fun WorkerSelfProfileScreen(
                                         Text(val_, style = MaterialTheme.typography.labelLarge, color = Primary, fontWeight = FontWeight.Bold)
                                         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                    if (i < 3) HorizontalDivider(
+                                    if (i < 2) HorizontalDivider(
                                         modifier = Modifier.width(1.dp).height(40.dp).padding(vertical = 8.dp),
                                         color = MaterialTheme.colorScheme.outlineVariant
                                     )
@@ -214,40 +212,6 @@ fun WorkerSelfProfileScreen(
                                         Surface(shape = RoundedCornerShape(20.dp), color = PrimaryTint) {
                                             Text(tag, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                                 style = MaterialTheme.typography.labelSmall, color = Primary)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Services offered
-                    if (servicesState is UiState.Success && (servicesState as UiState.Success).data.isNotEmpty()) {
-                        item {
-                            SectionBlock(title = "My Services") {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    (servicesState as UiState.Success).data.forEach { service ->
-                                        Surface(
-                                            shape = RoundedCornerShape(12.dp),
-                                            color = MaterialTheme.colorScheme.surfaceVariant,
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(14.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Column(modifier = Modifier.weight(1f)) {
-                                                    Text(service.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                                    Text(service.estimatedDuration.displayLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                }
-                                                Text(
-                                                    CurrencyUtils.formatRupees(service.startingPrice),
-                                                    style = MaterialTheme.typography.titleSmall,
-                                                    color = Primary,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
                                         }
                                     }
                                 }
@@ -302,9 +266,21 @@ fun WorkerSelfProfileScreen(
             currentName = w.name,
             currentBio = w.bio,
             currentPhone = w.phone,
+            currentRole = w.role,
+            currentCategory = w.category,
             onDismiss = { showEditDialog = false },
-            onSave = { _, _, _ -> showEditDialog = false } // TODO: hook to VM update
+            onSave = { name, phone, bio, role, category ->
+                viewModel.updateWorkerProfile(name, phone, bio, role, category)
+                showEditDialog = false
+            }
         )
+    }
+
+    val updateState by viewModel.updateState.collectAsState()
+    LaunchedEffect(updateState) {
+        if (updateState is UiState.Success) {
+            viewModel.clearUpdateState()
+        }
     }
 }
 
@@ -369,12 +345,17 @@ private fun WorkerEditDialog(
     currentName: String,
     currentBio: String,
     currentPhone: String,
+    currentRole: String,
+    currentCategory: ServiceCategory,
     onDismiss: () -> Unit,
-    onSave: (String, String, String) -> Unit
+    onSave: (String, String, String, String, ServiceCategory) -> Unit
 ) {
     var name by remember { mutableStateOf(currentName) }
     var bio by remember { mutableStateOf(currentBio) }
     var phone by remember { mutableStateOf(currentPhone) }
+    var role by remember { mutableStateOf(currentRole) }
+    var category by remember { mutableStateOf(currentCategory) }
+    var expanded by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -382,11 +363,31 @@ private fun WorkerEditDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-                OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Phone") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-                OutlinedTextField(value = bio, onValueChange = { bio = it }, label = { Text("Bio") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp), maxLines = 4)
+                OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Phone") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone))
+                OutlinedTextField(value = role, onValueChange = { role = it }, label = { Text("Role (e.g. Electrician)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                    OutlinedTextField(
+                        value = category.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Category") },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
+                    )
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        ServiceCategory.values().forEach { cat ->
+                            DropdownMenuItem(
+                                text = { Text(cat.displayName) },
+                                onClick = { category = cat; expanded = false }
+                            )
+                        }
+                    }
+                }
+                OutlinedTextField(value = bio, onValueChange = { bio = it }, label = { Text("About Me / Bio") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp), maxLines = 4)
             }
         },
-        confirmButton = { Button(onClick = { onSave(name, phone, bio) }, enabled = name.isNotBlank()) { Text("Save") } },
+        confirmButton = { Button(onClick = { onSave(name, phone, bio, role, category) }, enabled = name.isNotBlank()) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

@@ -8,6 +8,7 @@ import com.kaushalyakarnataka.app.data.model.PortfolioStats
 import com.kaushalyakarnataka.app.data.model.RatingStats
 import com.kaushalyakarnataka.app.data.model.Review
 import com.kaushalyakarnataka.app.data.model.Service
+import com.kaushalyakarnataka.app.data.model.ServiceCategory
 import com.kaushalyakarnataka.app.data.model.Worker
 import com.kaushalyakarnataka.app.data.repository.ReviewRepository
 import com.kaushalyakarnataka.app.data.repository.ServiceRepository
@@ -47,6 +48,9 @@ class WorkerProfileViewModel @Inject constructor(
     private val _ratingStatsState = MutableStateFlow<UiState<RatingStats>>(UiState.Loading)
     val ratingStatsState: StateFlow<UiState<RatingStats>> = _ratingStatsState.asStateFlow()
 
+    private val _updateState = MutableStateFlow<UiState<Unit>?>(null)
+    val updateState: StateFlow<UiState<Unit>?> = _updateState.asStateFlow()
+
     init {
         loadWorkerProfile()
     }
@@ -63,5 +67,21 @@ class WorkerProfileViewModel @Inject constructor(
             _portfolioState.value = serviceRepository.getWorkerPortfolio(workerId)
             _ratingStatsState.value = reviewRepository.getWorkerRatingStats(workerId)
         }
+    }
+
+    fun updateWorkerProfile(name: String, phone: String, bio: String, role: String, category: ServiceCategory) {
+        if (workerId.isBlank()) return
+        _updateState.value = UiState.Loading
+        viewModelScope.launch {
+            val result = workerRepository.updateWorkerProfileFields(workerId, name, phone, bio, role, category)
+            _updateState.value = result
+            if (result is UiState.Success) {
+                loadWorkerProfile()
+            }
+        }
+    }
+
+    fun clearUpdateState() {
+        _updateState.value = null
     }
 }

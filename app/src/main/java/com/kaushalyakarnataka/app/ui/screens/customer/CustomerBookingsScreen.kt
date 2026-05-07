@@ -37,10 +37,15 @@ fun CustomerBookingsScreen(
     viewModel: CustomerBookingsViewModel = hiltViewModel()
 ) {
     val bookingsState by viewModel.bookingsState.collectAsState()
+    val reviewSubmitState by viewModel.reviewSubmitState.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("All", "Upcoming", "Completed", "Cancelled")
+    var reviewBooking by remember { mutableStateOf<Booking?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("My Bookings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
@@ -103,7 +108,15 @@ fun CustomerBookingsScreen(
                             items(filtered) { booking ->
                                 CustomerBookingCard(
                                     booking = booking,
-                                    onViewWorker = { onNavigateToWorkerProfile(booking.workerId) }
+                                    onViewWorker = { onNavigateToWorkerProfile(booking.workerId) },
+                                    onAcceptProposal = {
+                                        viewModel.respondToNegotiation(booking.id, accepted = true, finalAmount = booking.negotiatedAmount)
+                                        scope.launch { snackbarHostState.showSnackbar("Payment confirmed. Booking completed!") }
+                                    },
+                                    onRejectProposal = {
+                                        viewModel.respondToNegotiation(booking.id, accepted = false)
+                                        scope.launch { snackbarHostState.showSnackbar("Price proposal rejected") }
+                                    }
                                 )
                             }
                         }
@@ -115,7 +128,12 @@ fun CustomerBookingsScreen(
 }
 
 @Composable
-fun CustomerBookingCard(booking: Booking, onViewWorker: () -> Unit) {
+fun CustomerBookingCard(
+    booking: Booking,
+    onViewWorker: () -> Unit,
+    onAcceptProposal: (() -> Unit)? = null,
+    onRejectProposal: (() -> Unit)? = null
+) {
     val (statusColor, statusBg) = when (booking.status) {
         BookingStatus.PENDING -> Warning to WarningTint
         BookingStatus.CONFIRMED -> Success to SuccessTint
@@ -166,17 +184,50 @@ fun CustomerBookingCard(booking: Booking, onViewWorker: () -> Unit) {
                     Text("Booking ID", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(booking.bookingCode, style = MaterialTheme.typography.labelMedium, color = Primary, fontWeight = FontWeight.Bold)
                 }
+                val priceText = when {
+                    booking.finalAmount > 0 -> "Final: ${CurrencyUtils.formatRupees(booking.finalAmount)}"
+                    booking.negotiatedAmount > 0 -> "Proposed: ${CurrencyUtils.formatRupees(booking.negotiatedAmount)}"
+                    booking.estimatedCostMin > 0 && booking.estimatedCostMax > 0 -> "${CurrencyUtils.formatRupees(booking.estimatedCostMin)}–${CurrencyUtils.formatRupees(booking.estimatedCostMax)}"
+                    else -> "Contact for price"
+                }
                 Text(
-                    "${CurrencyUtils.formatRupees(booking.estimatedCostMin)}–${CurrencyUtils.formatRupees(booking.estimatedCostMax)}",
+                    priceText,
                     style = MaterialTheme.typography.titleSmall,
                     color = Primary,
                     fontWeight = FontWeight.ExtraBold
                 )
             }
 
+            if (booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION && onAcceptProposal != null && onRejectProposal != null) {
+                Spacer(Modifier.height(10.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = SecondaryTint,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "Worker proposed: ${CurrencyUtils.formatRupees(booking.negotiatedAmount)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SecondaryDark
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(onClick = onRejectProposal, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)) {
+                                Text("Reject", fontWeight = FontWeight.Bold)
+                            }
+                            Button(onClick = onAcceptProposal, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Success)) {
+                                Text("Accept & Pay", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
             if (booking.status == BookingStatus.COMPLETED) {
                 Spacer(Modifier.height(10.dp))
-                OutlinedButton(onClick = onViewWorker, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { reviewBooking = booking }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.RateReview, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Leave a Review")
@@ -184,6 +235,104 @@ fun CustomerBookingCard(booking: Booking, onViewWorker: () -> Unit) {
             }
         }
     }
+
+    reviewBooking?.let { booking ->
+        LeaveReviewDialog(
+            workerName = booking.workerName,
+            serviceType = booking.service,
+            onDismiss = { reviewBooking = null },
+            onSubmit = { rating, comment ->
+                viewModel.submitReview(
+                    workerId = booking.workerId,
+                    rating = rating,
+                    comment = comment,
+                    serviceType = booking.service,
+                    bookingId = booking.id
+                )
+            },
+            isLoading = reviewSubmitState is UiState.Loading
+        )
+    }
+
+    LaunchedEffect(reviewSubmitState) {
+        if (reviewSubmitState is UiState.Success) {
+            scope.launch { snackbarHostState.showSnackbar("Review submitted successfully") }
+            viewModel.clearReviewSubmitState()
+            reviewBooking = null
+        } else if (reviewSubmitState is UiState.Error) {
+            scope.launch { snackbarHostState.showSnackbar((reviewSubmitState as UiState.Error).message) }
+            viewModel.clearReviewSubmitState()
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LeaveReviewDialog(
+    workerName: String,
+    serviceType: String,
+    onDismiss: () -> Unit,
+    onSubmit: (Int, String) -> Unit,
+    isLoading: Boolean
+) {
+    var rating by remember { mutableStateOf(0) }
+    var comment by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rate $workerName") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(serviceType, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    for (i in 1..5) {
+                        Icon(
+                            imageVector = if (i <= rating) Icons.Filled.Star else Icons.Outlined.Star,
+                            contentDescription = "$i stars",
+                            tint = if (i <= rating) Warning else MaterialTheme.colorScheme.outlineVariant,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clickable { rating = i }
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it; error = null },
+                    label = { Text("Write a review") },
+                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                    maxLines = 4,
+                    isError = error != null,
+                    supportingText = { error?.let { Text(it, color = MaterialTheme.colorScheme.error) } }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (rating == 0) {
+                        error = "Please select a rating"
+                    } else if (comment.isBlank()) {
+                        error = "Please write a review"
+                    } else {
+                        onSubmit(rating, comment)
+                    }
+                },
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Text("Submit")
+                }
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable

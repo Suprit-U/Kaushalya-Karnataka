@@ -82,23 +82,34 @@ fun WorkerCard(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.padding(top = 4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = "Rating",
-                        tint = Warning,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                    Text(
-                        text = "${worker.rating} (${worker.reviewCount} reviews)",
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                    if (worker.rating > 0 && worker.reviewCount > 0) {
+                        Icon(
+                            imageVector = Icons.Default.Star,
+                            contentDescription = "Rating",
+                            tint = Warning,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                        Text(
+                            text = "${String.format("%.1f", worker.rating)} (${worker.reviewCount} reviews)",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
                     Spacer(modifier = Modifier.weight(1f))
-                    Text(
-                        text = "${CurrencyUtils.formatRupees(worker.pricePerHour)}/hr",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    if (worker.pricePerHour > 0) {
+                        Text(
+                            text = "${CurrencyUtils.formatRupees(worker.pricePerHour)}/hr",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        Text(
+                            text = "Contact for price",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
         }

@@ -29,6 +29,7 @@ import com.kaushalyakarnataka.app.utils.DateUtils
 import com.kaushalyakarnataka.app.utils.UiState
 import com.kaushalyakarnataka.app.viewmodel.NotificationViewModel
 import com.kaushalyakarnataka.app.viewmodel.WorkerDashboardViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +50,8 @@ fun WorkerDashboardScreen(
     val unreadCount by notifViewModel.unreadCount.collectAsState()
     var currentWorkerTab by remember { mutableStateOf(WorkerNavDestination.DASHBOARD) }
     var showNotifications by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     // Refresh services when returning to services tab
     LaunchedEffect(currentWorkerTab) {
@@ -58,6 +61,7 @@ fun WorkerDashboardScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             WorkerBottomNav(
                 currentDestination = currentWorkerTab,
@@ -78,9 +82,10 @@ fun WorkerDashboardScreen(
                 pendingJobs = pendingJobs,
                 earningsData = earningsData,
                 unreadCount = unreadCount,
-                onAccept = { viewModel.acceptJob(it) },
-                onDecline = { viewModel.declineJob(it) },
-                onMarkComplete = { viewModel.markComplete(it) },
+                onAccept = { id -> viewModel.acceptJob(id); scope.launch { snackbarHostState.showSnackbar("Booking accepted") } },
+                onDecline = { id -> viewModel.declineJob(id); scope.launch { snackbarHostState.showSnackbar("Booking declined") } },
+                onMarkComplete = { id -> viewModel.markComplete(id); scope.launch { snackbarHostState.showSnackbar("Marked as completed") } },
+                onProposeAmount = { id, amount -> viewModel.proposeNegotiatedAmount(id, amount); scope.launch { snackbarHostState.showSnackbar("Final amount proposed") } },
                 onNotificationsClick = { showNotifications = true },
                 modifier = Modifier.padding(paddingValues)
             )
@@ -95,9 +100,10 @@ fun WorkerDashboardScreen(
                 pendingJobs = pendingJobs,
                 upcomingJobs = upcomingJobs,
                 allBookings = allBookings,
-                onAccept = { viewModel.acceptJob(it) },
-                onDecline = { viewModel.declineJob(it) },
-                onMarkComplete = { viewModel.markComplete(it) },
+                onAccept = { id -> viewModel.acceptJob(id); scope.launch { snackbarHostState.showSnackbar("Booking accepted") } },
+                onDecline = { id -> viewModel.declineJob(id); scope.launch { snackbarHostState.showSnackbar("Booking declined") } },
+                onMarkComplete = { id -> viewModel.markComplete(id); scope.launch { snackbarHostState.showSnackbar("Marked as completed") } },
+                onProposeAmount = { id, amount -> viewModel.proposeNegotiatedAmount(id, amount); scope.launch { snackbarHostState.showSnackbar("Final amount proposed") } },
                 modifier = Modifier.padding(paddingValues)
             )
             WorkerNavDestination.PROFILE -> {
@@ -118,6 +124,7 @@ private fun DashboardTab(
     onAccept: (String) -> Unit,
     onDecline: (String) -> Unit,
     onMarkComplete: (String) -> Unit,
+    onProposeAmount: (String, Int) -> Unit,
     onNotificationsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -267,6 +274,7 @@ private fun DashboardTab(
                         onAccept = { onAccept(booking.id) },
                         onDecline = { onDecline(booking.id) },
                         onMarkComplete = { onMarkComplete(booking.id) },
+                        onProposeAmount = { amount -> onProposeAmount(booking.id, amount) },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                     )
                 }
@@ -305,6 +313,7 @@ fun EnhancedJobCard(
     onAccept: (() -> Unit)? = null,
     onDecline: (() -> Unit)? = null,
     onMarkComplete: (() -> Unit)? = null,
+    onProposeAmount: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val (statusColor, statusBg) = when (booking.status) {
@@ -349,7 +358,13 @@ fun EnhancedJobCard(
 
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("${CurrencyUtils.formatRupees(booking.estimatedCostMin)}–${CurrencyUtils.formatRupees(booking.estimatedCostMax)}", style = MaterialTheme.typography.titleSmall, color = Primary, fontWeight = FontWeight.ExtraBold)
+                val priceText = when {
+                    booking.finalAmount > 0 -> "Final: ${CurrencyUtils.formatRupees(booking.finalAmount)}"
+                    booking.negotiatedAmount > 0 -> "Proposed: ${CurrencyUtils.formatRupees(booking.negotiatedAmount)}"
+                    booking.estimatedCostMin > 0 && booking.estimatedCostMax > 0 -> "${CurrencyUtils.formatRupees(booking.estimatedCostMin)}–${CurrencyUtils.formatRupees(booking.estimatedCostMax)}"
+                    else -> "Contact for price"
+                }
+                Text(priceText, style = MaterialTheme.typography.titleSmall, color = Primary, fontWeight = FontWeight.ExtraBold)
                 Text(booking.bookingCode, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
@@ -365,16 +380,69 @@ fun EnhancedJobCard(
                 }
             }
 
-            if (booking.status == BookingStatus.CONFIRMED && onMarkComplete != null) {
+            if (booking.status == BookingStatus.CONFIRMED && onProposeAmount != null) {
                 Spacer(Modifier.height(12.dp))
+                var showProposeDialog by remember { mutableStateOf(false) }
+                if (showProposeDialog) {
+                    var amountText by remember { mutableStateOf(booking.estimatedCostMax.toString()) }
+                    AlertDialog(
+                        onDismissRequest = { showProposeDialog = false },
+                        title = { Text("Propose Final Amount") },
+                        text = {
+                            OutlinedTextField(
+                                value = amountText,
+                                onValueChange = { amountText = it.filter { c -> c.isDigit() } },
+                                label = { Text("Final Amount (₹)") },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                prefix = { Text("₹") }
+                            )
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    val amount = amountText.toIntOrNull() ?: 0
+                                    if (amount > 0) {
+                                        onProposeAmount(amount)
+                                        showProposeDialog = false
+                                    }
+                                }
+                            ) { Text("Propose") }
+                        },
+                        dismissButton = { TextButton(onClick = { showProposeDialog = false }) { Text("Cancel") } }
+                    )
+                }
                 Button(
-                    onClick = onMarkComplete,
+                    onClick = { showProposeDialog = true },
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = Success)
                 ) {
-                    Icon(Icons.Default.CheckCircle, null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Payments, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Mark as Completed", fontWeight = FontWeight.Bold)
+                    Text("Propose Final Amount", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            if (booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION) {
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = SecondaryTint,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.HourglassTop, null, tint = Secondary)
+                        Text(
+                            "Awaiting customer confirmation for ${CurrencyUtils.formatRupees(booking.negotiatedAmount)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SecondaryDark,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
@@ -511,6 +579,7 @@ private fun BookingsTab(
     onAccept: (String) -> Unit,
     onDecline: (String) -> Unit,
     onMarkComplete: (String) -> Unit,
+    onProposeAmount: (String, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(0) }
@@ -549,7 +618,8 @@ private fun BookingsTab(
                         booking = booking,
                         onAccept = if (booking.status == BookingStatus.PENDING) ({ onAccept(booking.id) }) else null,
                         onDecline = if (booking.status == BookingStatus.PENDING) ({ onDecline(booking.id) }) else null,
-                        onMarkComplete = if (booking.status == BookingStatus.CONFIRMED) ({ onMarkComplete(booking.id) }) else null
+                        onMarkComplete = if (booking.status == BookingStatus.CONFIRMED) ({ onMarkComplete(booking.id) }) else null,
+                        onProposeAmount = if (booking.status == BookingStatus.CONFIRMED) ({ amount -> onProposeAmount(booking.id, amount) }) else null
                     )
                 }
             }

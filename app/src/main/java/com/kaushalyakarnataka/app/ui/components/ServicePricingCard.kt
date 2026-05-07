@@ -55,22 +55,31 @@ fun ServicePricingCard(
                 Spacer(modifier = Modifier.width(16.dp))
                 
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = CurrencyUtils.formatRupees(service.startingPrice),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    val priceSuffix = when (service.pricingType) {
-                        PricingType.HOURLY -> "/ hr"
-                        PricingType.FIXED -> "fixed"
-                        PricingType.STARTING_AT -> "onwards"
+                    if (service.startingPrice > 0) {
+                        Text(
+                            text = CurrencyUtils.formatRupees(service.startingPrice),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        val priceSuffix = when (service.pricingType) {
+                            PricingType.HOURLY -> "/ hr"
+                            PricingType.FIXED -> "fixed"
+                            PricingType.STARTING_AT -> "onwards"
+                        }
+                        Text(
+                            text = priceSuffix,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Text(
+                            text = "Contact for price",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
-                    Text(
-                        text = priceSuffix,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
             

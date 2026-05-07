@@ -83,22 +83,27 @@ fun WorkerProfileScreen(
                                     try {
                                         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${worker.phone}"))
                                         context.startActivity(intent)
-                                    } catch (e: Exception) { /* no dialer */ }
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "No dialer app found", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
                                 }
                             },
                             onWhatsApp = {
-                                val number = worker.phone.replace(Regex("[^0-9]"), "")
-                                if (number.isNotBlank()) {
+                                if (worker.phone.isNotBlank()) {
+                                    val cleaned = worker.phone.replace(Regex("[^0-9+]"), "")
+                                    val numberWithCountry = if (cleaned.startsWith("+")) cleaned.drop(1) else if (cleaned.startsWith("91") && cleaned.length == 12) cleaned else "91$cleaned"
                                     try {
                                         val intent = Intent(Intent.ACTION_VIEW,
-                                            Uri.parse("https://wa.me/91$number"))
+                                            Uri.parse("https://wa.me/$numberWithCountry"))
                                         context.startActivity(intent)
                                     } catch (e: Exception) {
                                         try {
                                             val intent = Intent(Intent.ACTION_VIEW,
-                                                Uri.parse("https://api.whatsapp.com/send?phone=91$number"))
+                                                Uri.parse("https://api.whatsapp.com/send?phone=$numberWithCountry"))
                                             context.startActivity(intent)
-                                        } catch (ex: Exception) { /* no WhatsApp */ }
+                                        } catch (ex: Exception) {
+                                            android.widget.Toast.makeText(context, "WhatsApp not installed", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             },
@@ -408,13 +413,22 @@ private fun ServicePricingRow(service: Service) {
                 Text(service.estimatedDuration.displayLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    "~${CurrencyUtils.formatRupees(service.startingPrice)}",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Primary,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(service.pricingType.displayLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (service.startingPrice > 0) {
+                    Text(
+                        "~${CurrencyUtils.formatRupees(service.startingPrice)}",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = Primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(service.pricingType.displayLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text(
+                        "Contact for price",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
