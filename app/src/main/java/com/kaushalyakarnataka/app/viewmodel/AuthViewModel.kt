@@ -29,14 +29,22 @@ class AuthViewModel @Inject constructor(
     }
 
     private fun checkCurrentUser() {
-        val user = authRepository.currentUser
-        if (user != null) {
-            _authState.value = UiState.Loading
-            viewModelScope.launch {
-                val profileResult = authRepository.getUserProfile(user.uid)
-                _authState.value = profileResult
-                if (profileResult is UiState.Success) {
-                    _currentUserRole.value = profileResult.data.role
+        val user = authRepository.currentUser ?: return
+        _authState.value = UiState.Loading
+        viewModelScope.launch {
+            val result = authRepository.getUserProfile(user.uid)
+            _authState.value = result
+            if (result is UiState.Success) {
+                _currentUserRole.value = result.data.role
+            } else {
+                // Profile missing — try to handle gracefully (auto-login without role check)
+                val fallback = authRepository.signIn(user.email ?: "", "", null)
+                if (fallback is UiState.Success) {
+                    _authState.value = fallback
+                    _currentUserRole.value = fallback.data.role
+                } else {
+                    _authState.value = null
+                    authRepository.signOut()
                 }
             }
         }
@@ -46,10 +54,23 @@ class AuthViewModel @Inject constructor(
         _currentUserRole.value = role
     }
 
+    /** Login with portal-based role validation */
+    fun loginWithRole(email: String, pass: String, expectedRole: UserRole) {
+        _authState.value = UiState.Loading
+        viewModelScope.launch {
+            val result = authRepository.signIn(email, pass, expectedRole)
+            if (result is UiState.Success) {
+                _currentUserRole.value = result.data.role
+            }
+            _authState.value = result
+        }
+    }
+
+    /** Legacy login without role check (kept for backward compat) */
     fun login(email: String, pass: String) {
         _authState.value = UiState.Loading
         viewModelScope.launch {
-            val result = authRepository.signIn(email, pass)
+            val result = authRepository.signIn(email, pass, null)
             if (result is UiState.Success) {
                 _currentUserRole.value = result.data.role
             }
