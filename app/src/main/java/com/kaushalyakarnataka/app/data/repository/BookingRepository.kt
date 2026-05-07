@@ -7,6 +7,7 @@ import com.kaushalyakarnataka.app.data.firebase.FirestoreCollections
 import com.kaushalyakarnataka.app.data.model.AppNotification
 import com.kaushalyakarnataka.app.data.model.Booking
 import com.kaushalyakarnataka.app.data.model.BookingStatus
+import com.kaushalyakarnataka.app.data.model.NegotiationStatus
 import com.kaushalyakarnataka.app.data.model.NotificationType
 import com.kaushalyakarnataka.app.utils.UiState
 import kotlinx.coroutines.tasks.await
@@ -22,6 +23,9 @@ interface BookingRepository {
     suspend fun getWorkerPendingBookings(workerId: String): UiState<List<Booking>>
     suspend fun updateBookingStatus(bookingId: String, status: BookingStatus): UiState<Unit>
     suspend fun getBookingById(bookingId: String): UiState<Booking>
+    suspend fun proposeNegotiatedAmount(bookingId: String, amount: Int): UiState<Unit>
+    suspend fun respondToNegotiation(bookingId: String, accepted: Boolean, finalAmount: Int): UiState<Unit>
+    suspend fun completeBookingWithFinalAmount(bookingId: String, finalAmount: Int): UiState<Unit>
 }
 
 class BookingRepositoryImpl @Inject constructor(
@@ -41,33 +45,14 @@ class BookingRepositoryImpl @Inject constructor(
                 status = BookingStatus.PENDING,
                 createdAt = Timestamp.now(),
             )
-            val bookingMap = mapOf(
-                "id" to newBooking.id,
-                "customerId" to newBooking.customerId,
-                "customerName" to newBooking.customerName,
-                "workerId" to newBooking.workerId,
-                "workerName" to newBooking.workerName,
-                "service" to newBooking.service,
-                "scheduledDate" to newBooking.scheduledDate,
-                "timeSlot" to newBooking.timeSlot,
-                "address" to newBooking.address,
-                "notes" to newBooking.notes,
-                "status" to newBooking.status.name,
-                "estimatedCostMin" to newBooking.estimatedCostMin,
-                "estimatedCostMax" to newBooking.estimatedCostMax,
-                "bookingCode" to newBooking.bookingCode,
-                "couponCode" to newBooking.couponCode,
-                "discountAmount" to newBooking.discountAmount,
-                "createdAt" to newBooking.createdAt,
-            )
+            val bookingMap = buildBookingMap(newBooking)
             bookingsRef.document(bookingId).set(bookingMap).await()
 
-            // Notify worker of new booking request
             notificationRepository.sendNotification(
                 AppNotification(
                     userId = newBooking.workerId,
                     title = "New Booking Request! 🔔",
-                    message = "${newBooking.customerName} has requested ${newBooking.service} on ${newBooking.timeSlot}",
+                    message = "${newBooking.customerName} requested ${newBooking.service} at ${newBooking.timeSlot}",
                     type = NotificationType.BOOKING_REQUEST,
                     bookingId = bookingId
                 )
@@ -121,50 +106,37 @@ class BookingRepositoryImpl @Inject constructor(
     override suspend fun updateBookingStatus(bookingId: String, status: BookingStatus): UiState<Unit> {
         return try {
             bookingsRef.document(bookingId).update("status", status.name).await()
-
-            // Fetch booking to get details for notification
             val bookingResult = getBookingById(bookingId)
             if (bookingResult is UiState.Success) {
                 val booking = bookingResult.data
-                val notificationData = when (status) {
-                    BookingStatus.CONFIRMED -> Quad(
+                val notifData = when (status) {
+                    BookingStatus.CONFIRMED -> Triple(
                         "Booking Confirmed! ✅",
-                        "${booking.workerName} has accepted your booking for ${booking.service}",
-                        NotificationType.BOOKING_CONFIRMED,
+                        "${booking.workerName} accepted your booking for ${booking.service}",
                         booking.customerId
                     )
-                    BookingStatus.CANCELLED -> Quad(
+                    BookingStatus.CANCELLED -> Triple(
                         "Booking Declined",
                         "Your booking for ${booking.service} was declined",
-                        NotificationType.BOOKING_DECLINED,
                         booking.customerId
                     )
-                    BookingStatus.COMPLETED -> Quad(
+                    BookingStatus.COMPLETED -> Triple(
                         "Job Completed! 🎉",
-                        "${booking.workerName} has marked ${booking.service} as complete. Please confirm.",
-                        NotificationType.BOOKING_COMPLETED,
+                        "Rate your experience with ${booking.workerName}",
                         booking.customerId
                     )
                     else -> null
                 }
-                if (notificationData != null) {
-                    val (title, message, notifType, targetUserId) = notificationData
-                    notificationRepository.sendNotification(
-                        AppNotification(
-                            userId = targetUserId,
-                            title = title,
-                            message = message,
-                            type = notifType,
-                            bookingId = bookingId
-                        )
-                    )
+                if (notifData != null) {
+                    val (title, msg, target) = notifData
+                    notificationRepository.sendNotification(AppNotification(
+                        userId = target, title = title, message = msg,
+                        type = NotificationType.BOOKING_CONFIRMED, bookingId = bookingId
+                    ))
                 }
             }
-
-            Log.i(TAG, "Booking $bookingId updated to ${status.name}")
             UiState.Success(Unit)
         } catch (e: Exception) {
-            Log.e(TAG, "updateBookingStatus failed", e)
             UiState.Error(e.message ?: "Failed to update booking status")
         }
     }
@@ -178,6 +150,113 @@ class BookingRepositoryImpl @Inject constructor(
             UiState.Error(e.message ?: "Failed to load booking")
         }
     }
+
+    override suspend fun proposeNegotiatedAmount(bookingId: String, amount: Int): UiState<Unit> {
+        return try {
+            bookingsRef.document(bookingId).update(mapOf(
+                "negotiatedAmount" to amount,
+                "negotiationStatus" to NegotiationStatus.WORKER_PROPOSED.name,
+                "status" to BookingStatus.AWAITING_PAYMENT_CONFIRMATION.name
+            )).await()
+
+            val bookingResult = getBookingById(bookingId)
+            if (bookingResult is UiState.Success) {
+                val booking = bookingResult.data
+                notificationRepository.sendNotification(AppNotification(
+                    userId = booking.customerId,
+                    title = "Final Price Proposed 💰",
+                    message = "${booking.workerName} proposed ₹$amount for ${booking.service}. Please confirm.",
+                    type = NotificationType.BOOKING_UPDATE,
+                    bookingId = bookingId
+                ))
+            }
+            UiState.Success(Unit)
+        } catch (e: Exception) {
+            UiState.Error(e.message ?: "Failed to propose amount")
+        }
+    }
+
+    override suspend fun respondToNegotiation(bookingId: String, accepted: Boolean, finalAmount: Int): UiState<Unit> {
+        return try {
+            if (accepted) {
+                bookingsRef.document(bookingId).update(mapOf(
+                    "negotiationStatus" to NegotiationStatus.CUSTOMER_ACCEPTED.name,
+                    "finalAmount" to finalAmount,
+                    "status" to BookingStatus.COMPLETED.name
+                )).await()
+            } else {
+                bookingsRef.document(bookingId).update(mapOf(
+                    "negotiationStatus" to NegotiationStatus.CUSTOMER_REJECTED.name,
+                    "status" to BookingStatus.CONFIRMED.name
+                )).await()
+            }
+
+            val bookingResult = getBookingById(bookingId)
+            if (bookingResult is UiState.Success) {
+                val booking = bookingResult.data
+                notificationRepository.sendNotification(AppNotification(
+                    userId = booking.workerId,
+                    title = if (accepted) "Payment Confirmed ✅" else "Customer Rejected Proposed Price",
+                    message = if (accepted) "Customer confirmed final payment of ₹$finalAmount"
+                              else "Customer rejected the proposed price. Please discuss.",
+                    type = NotificationType.BOOKING_UPDATE,
+                    bookingId = bookingId
+                ))
+            }
+            UiState.Success(Unit)
+        } catch (e: Exception) {
+            UiState.Error(e.message ?: "Failed to respond to negotiation")
+        }
+    }
+
+    override suspend fun completeBookingWithFinalAmount(bookingId: String, finalAmount: Int): UiState<Unit> {
+        return try {
+            bookingsRef.document(bookingId).update(mapOf(
+                "status" to BookingStatus.COMPLETED.name,
+                "finalAmount" to finalAmount,
+                "negotiationStatus" to NegotiationStatus.NONE.name
+            )).await()
+
+            val bookingResult = getBookingById(bookingId)
+            if (bookingResult is UiState.Success) {
+                val booking = bookingResult.data
+                notificationRepository.sendNotification(AppNotification(
+                    userId = booking.customerId,
+                    title = "Job Completed! 🎉",
+                    message = "Rate your experience with ${booking.workerName}",
+                    type = NotificationType.BOOKING_COMPLETED,
+                    bookingId = bookingId
+                ))
+            }
+            UiState.Success(Unit)
+        } catch (e: Exception) {
+            UiState.Error(e.message ?: "Failed to complete booking")
+        }
+    }
+
+    private fun buildBookingMap(booking: Booking): Map<String, Any?> = mapOf(
+        "id" to booking.id,
+        "customerId" to booking.customerId,
+        "customerName" to booking.customerName,
+        "workerId" to booking.workerId,
+        "workerName" to booking.workerName,
+        "service" to booking.service,
+        "serviceId" to booking.serviceId,
+        "scheduledDate" to booking.scheduledDate,
+        "timeSlot" to booking.timeSlot,
+        "address" to booking.address,
+        "notes" to booking.notes,
+        "status" to booking.status.name,
+        "estimatedCostMin" to booking.estimatedCostMin,
+        "estimatedCostMax" to booking.estimatedCostMax,
+        "finalAmount" to booking.finalAmount,
+        "negotiatedAmount" to booking.negotiatedAmount,
+        "negotiationStatus" to booking.negotiationStatus.name,
+        "bookingCode" to booking.bookingCode,
+        "couponCode" to booking.couponCode,
+        "discountAmount" to booking.discountAmount,
+        "createdAt" to booking.createdAt,
+    )
 
     private fun parseBookings(docs: List<com.google.firebase.firestore.DocumentSnapshot>): List<Booking> {
         return docs.mapNotNull { doc ->
@@ -199,6 +278,7 @@ class BookingRepositoryImpl @Inject constructor(
             workerId = data["workerId"] as? String ?: "",
             workerName = data["workerName"] as? String ?: "",
             service = data["service"] as? String ?: "",
+            serviceId = data["serviceId"] as? String ?: "",
             scheduledDate = data["scheduledDate"] as? Timestamp ?: Timestamp.now(),
             timeSlot = data["timeSlot"] as? String ?: "",
             address = data["address"] as? String ?: "",
@@ -206,41 +286,11 @@ class BookingRepositoryImpl @Inject constructor(
             status = try { BookingStatus.valueOf(data["status"] as? String ?: "PENDING") } catch (e: Exception) { BookingStatus.PENDING },
             estimatedCostMin = (data["estimatedCostMin"] as? Long)?.toInt() ?: 0,
             estimatedCostMax = (data["estimatedCostMax"] as? Long)?.toInt() ?: 0,
+            finalAmount = (data["finalAmount"] as? Long)?.toInt() ?: 0,
+            negotiatedAmount = (data["negotiatedAmount"] as? Long)?.toInt() ?: 0,
+            negotiationStatus = try { NegotiationStatus.valueOf(data["negotiationStatus"] as? String ?: "NONE") } catch (e: Exception) { NegotiationStatus.NONE },
             bookingCode = data["bookingCode"] as? String ?: "",
             createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
         )
     }
 }
-
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
-
-fun sampleBookings() = listOf(
-    Booking(
-        id = "booking1",
-        customerId = "customer1",
-        customerName = "Anjali Sharma",
-        workerId = "worker1",
-        workerName = "Ramesh Kumar",
-        service = "Wiring & Repair",
-        timeSlot = "9:00 AM",
-        address = "42, 5th Cross, Koramangala 4th Block",
-        status = BookingStatus.PENDING,
-        estimatedCostMin = 450,
-        estimatedCostMax = 900,
-        bookingCode = "#KK-2024-0106",
-    ),
-    Booking(
-        id = "booking2",
-        customerId = "customer2",
-        customerName = "Prakash Nair",
-        workerId = "worker1",
-        workerName = "Ramesh Kumar",
-        service = "Fan Installation × 2",
-        timeSlot = "2:00 PM",
-        address = "HSR Layout, Sector 6",
-        status = BookingStatus.CONFIRMED,
-        estimatedCostMin = 700,
-        estimatedCostMax = 1000,
-        bookingCode = "#KK-2024-0107",
-    ),
-)

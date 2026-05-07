@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.kaushalyakarnataka.app.data.model.Booking
 import com.kaushalyakarnataka.app.data.model.BookingStatus
 import com.kaushalyakarnataka.app.data.model.EarningsData
+import com.kaushalyakarnataka.app.data.model.NegotiationStatus
 import com.kaushalyakarnataka.app.data.model.Service
 import com.kaushalyakarnataka.app.data.model.Worker
 import com.kaushalyakarnataka.app.data.repository.AuthRepository
@@ -45,6 +46,9 @@ class WorkerDashboardViewModel @Inject constructor(
     private val _allBookings = MutableStateFlow<UiState<List<Booking>>>(UiState.Loading)
     val allBookings: StateFlow<UiState<List<Booking>>> = _allBookings.asStateFlow()
 
+    private val _negotiationProposalState = MutableStateFlow<UiState<Unit>?>(null)
+    val negotiationProposalState: StateFlow<UiState<Unit>?> = _negotiationProposalState.asStateFlow()
+
     init { loadDashboardData() }
 
     fun loadDashboardData() {
@@ -58,23 +62,31 @@ class WorkerDashboardViewModel @Inject constructor(
             _allBookings.value = allBookingsResult
 
             if (allBookingsResult is UiState.Success) {
-                val upcoming = allBookingsResult.data.filter { it.status == BookingStatus.CONFIRMED }
+                val upcoming = allBookingsResult.data.filter {
+                    it.status == BookingStatus.CONFIRMED || it.status == BookingStatus.IN_PROGRESS
+                }
                 _upcomingJobs.value = UiState.Success(upcoming)
+
                 val completed = allBookingsResult.data.filter { it.status == BookingStatus.COMPLETED }
-                val totalEarnings = completed.sumOf { it.estimatedCostMax }
+                // Use finalAmount if set, else estimatedCostMax
+                val totalEarnings = completed.sumOf { b ->
+                    if (b.finalAmount > 0) b.finalAmount else b.estimatedCostMax
+                }
+                val rating = (_workerState.value as? UiState.Success)?.data?.rating ?: 0.0
+
                 _earningsData.value = UiState.Success(
                     EarningsData(
-                        thisMonthTotal = totalEarnings.coerceAtLeast(12500),
-                        lastMonthTotal = 10200,
-                        percentageChange = 22,
-                        completedJobs = completed.size.coerceAtLeast(45),
+                        thisMonthTotal = totalEarnings,
+                        lastMonthTotal = 0,
+                        percentageChange = 0,
+                        completedJobs = completed.size,
                         pendingJobs = (_pendingJobs.value as? UiState.Success)?.data?.size ?: 0,
-                        averageRating = (_workerState.value as? UiState.Success)?.data?.rating ?: 4.8
+                        averageRating = rating
                     )
                 )
             } else {
                 _upcomingJobs.value = UiState.Success(emptyList())
-                _earningsData.value = UiState.Success(EarningsData(thisMonthTotal = 12500, lastMonthTotal = 10200, percentageChange = 22, completedJobs = 45, pendingJobs = 0, averageRating = 4.8))
+                _earningsData.value = UiState.Success(EarningsData())
             }
         }
     }
@@ -106,14 +118,36 @@ class WorkerDashboardViewModel @Inject constructor(
         }
     }
 
-    fun acceptJob(bookingId: String) = updateJobStatus(bookingId, BookingStatus.CONFIRMED)
-    fun declineJob(bookingId: String) = updateJobStatus(bookingId, BookingStatus.CANCELLED)
-    fun markComplete(bookingId: String) = updateJobStatus(bookingId, BookingStatus.COMPLETED)
-
-    private fun updateJobStatus(bookingId: String, status: BookingStatus) {
+    fun proposeNegotiatedAmount(bookingId: String, amount: Int) {
+        _negotiationProposalState.value = UiState.Loading
         viewModelScope.launch {
-            val result = bookingRepository.updateBookingStatus(bookingId, status)
-            if (result is UiState.Success) loadDashboardData()
+            _negotiationProposalState.value = bookingRepository.proposeNegotiatedAmount(bookingId, amount)
+            loadDashboardData()
+        }
+    }
+
+    fun markComplete(bookingId: String, finalAmount: Int = 0) {
+        viewModelScope.launch {
+            if (finalAmount > 0) {
+                bookingRepository.completeBookingWithFinalAmount(bookingId, finalAmount)
+            } else {
+                bookingRepository.updateBookingStatus(bookingId, BookingStatus.COMPLETED)
+            }
+            loadDashboardData()
+        }
+    }
+
+    fun acceptJob(bookingId: String) {
+        viewModelScope.launch {
+            bookingRepository.updateBookingStatus(bookingId, BookingStatus.CONFIRMED)
+            loadDashboardData()
+        }
+    }
+
+    fun declineJob(bookingId: String) {
+        viewModelScope.launch {
+            bookingRepository.updateBookingStatus(bookingId, BookingStatus.CANCELLED)
+            loadDashboardData()
         }
     }
 }

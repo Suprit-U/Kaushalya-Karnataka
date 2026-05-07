@@ -59,42 +59,58 @@ fun WorkerProfileScreen(
         }
     ) { paddingValues ->
         when (val state = profileState) {
-            is UiState.Loading -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Primary)
-                }
+            is UiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Primary)
             }
-            is UiState.Error -> {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            is UiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(state.message, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = { viewModel.loadWorkerProfile() }) { Text("Retry") }
                 }
             }
             is UiState.Success -> {
                 val worker = state.data
-                LazyColumn(
-                    modifier = modifier.fillMaxSize().padding(paddingValues)
-                ) {
+                LazyColumn(modifier = modifier.fillMaxSize().padding(paddingValues)) {
                     item { WorkerHeroSection(worker = worker, onBack = onNavigateBack) }
                     item { WorkerStatsStrip(worker = worker) }
                     item {
                         WorkerActionRow(
                             phone = worker.phone,
+                            email = worker.email,
                             onCall = {
                                 if (worker.phone.isNotBlank()) {
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${worker.phone}"))
-                                    context.startActivity(intent)
+                                    try {
+                                        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${worker.phone}"))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) { /* no dialer */ }
                                 }
                             },
                             onWhatsApp = {
                                 val number = worker.phone.replace(Regex("[^0-9]"), "")
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW,
-                                        Uri.parse("https://wa.me/91$number"))
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    val intent = Intent(Intent.ACTION_VIEW,
-                                        Uri.parse("https://wa.me/91$number"))
-                                    context.startActivity(intent)
+                                if (number.isNotBlank()) {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_VIEW,
+                                            Uri.parse("https://wa.me/91$number"))
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW,
+                                                Uri.parse("https://api.whatsapp.com/send?phone=91$number"))
+                                            context.startActivity(intent)
+                                        } catch (ex: Exception) { /* no WhatsApp */ }
+                                    }
+                                }
+                            },
+                            onEmail = {
+                                if (worker.email.isNotBlank()) {
+                                    try {
+                                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                            data = Uri.parse("mailto:${worker.email}")
+                                            putExtra(Intent.EXTRA_SUBJECT, "Service Inquiry")
+                                        }
+                                        context.startActivity(intent)
+                                    } catch (e: Exception) { /* no email client */ }
                                 }
                             },
                             onBook = { onNavigateToHire(workerId) }
@@ -107,15 +123,21 @@ fun WorkerProfileScreen(
 
                     item {
                         ProfileSection(title = "About") {
-                            Text(worker.bio.ifBlank { "Experienced ${worker.category.displayName} available for your service needs." },
-                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                worker.bio.ifBlank { "Experienced ${worker.category.displayName} available for your service needs." },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
                     if (worker.tags.isNotEmpty()) {
                         item {
                             ProfileSection(title = "Skills") {
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FlowRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
                                     worker.tags.forEach { tag ->
                                         Surface(shape = RoundedCornerShape(20.dp), color = PrimaryTint) {
                                             Text(tag, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -154,21 +176,60 @@ fun WorkerProfileScreen(
                     }
 
                     when (val rv = reviewsState) {
-                        is UiState.Success -> if (rv.data.isNotEmpty()) {
-                            item {
-                                ProfileSection(title = "Reviews") {
-                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        rv.data.take(3).forEach { review ->
-                                            ReviewPreviewCard(review = review)
-                                        }
-                                        if (rv.data.size > 3) {
-                                            OutlinedButton(
-                                                onClick = { onNavigateToReviews(workerId) },
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Text("See all ${rv.data.size} reviews")
+                        is UiState.Success -> {
+                            if (rv.data.isNotEmpty()) {
+                                item {
+                                    ProfileSection(title = "Reviews") {
+                                        // Rating summary
+                                        val avg = rv.data.map { it.rating }.average()
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(bottom = 12.dp)
+                                        ) {
+                                            Text(
+                                                String.format("%.1f", avg),
+                                                style = MaterialTheme.typography.headlineMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Primary
+                                            )
+                                            Spacer(Modifier.width(8.dp))
+                                            Column {
+                                                Row {
+                                                    repeat(5) { i ->
+                                                        Icon(
+                                                            if (i < avg.toInt()) Icons.Filled.Star else Icons.Outlined.Star,
+                                                            null, tint = Warning, modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Text("${rv.data.size} reviews",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         }
+                                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                            rv.data.take(3).forEach { review ->
+                                                ReviewPreviewCard(review = review)
+                                            }
+                                            if (rv.data.size > 3) {
+                                                OutlinedButton(
+                                                    onClick = { onNavigateToReviews(workerId) },
+                                                    modifier = Modifier.fillMaxWidth()
+                                                ) {
+                                                    Text("See all ${rv.data.size} reviews")
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                item {
+                                    ProfileSection(title = "Reviews") {
+                                        Text(
+                                            "No reviews yet. Be the first to book and review!",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
                                 }
                             }
@@ -216,20 +277,27 @@ private fun WorkerHeroSection(worker: Worker, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(12.dp))
             Text(worker.name, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(worker.role.ifBlank { worker.category.displayName }, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
+            Text(
+                worker.role.ifBlank { worker.category.displayName },
+                style = MaterialTheme.typography.bodyMedium,
+                color = Color.White.copy(alpha = 0.8f)
+            )
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
-                    Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
-                        Text(" ${worker.rating} · ${worker.reviewCount} reviews", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                if (worker.rating > 0 || worker.reviewCount > 0) {
+                    Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
+                        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
+                            Text(" ${String.format("%.1f", worker.rating)} · ${worker.reviewCount} reviews",
+                                style = MaterialTheme.typography.labelSmall, color = Color.White)
+                        }
                     }
                 }
-                if (worker.distanceKm > 0) {
+                if (worker.location.isNotBlank()) {
                     Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
                         Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.LocationOn, null, tint = Secondary, modifier = Modifier.size(14.dp))
-                            Text(" ${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                            Text(" ${worker.location.take(20)}", style = MaterialTheme.typography.labelSmall, color = Color.White)
                         }
                     }
                 }
@@ -248,15 +316,15 @@ private fun WorkerStatsStrip(worker: Worker) {
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf(
-                Triple("${worker.reviewCount}", "Reviews", Icons.Default.Reviews),
-                Triple("${worker.experienceYears}y", "Experience", Icons.Default.WorkHistory),
-                Triple("${worker.successRate}%", "Success", Icons.Default.Verified)
-            ).forEachIndexed { index, (value, label, icon) ->
+                Pair("${worker.reviewCount}", "Reviews"),
+                Pair(if (worker.pricePerHour > 0) "~${CurrencyUtils.formatRupees(worker.pricePerHour)}/h" else "—", "Rate"),
+                Pair(if (worker.isAvailable) "Available" else "Busy", "Status"),
+            ).forEachIndexed { index, (value, label) ->
                 Column(
                     modifier = Modifier.weight(1f).padding(vertical = 14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(value, style = MaterialTheme.typography.titleMedium, color = Primary, fontWeight = FontWeight.Bold)
+                    Text(value, style = MaterialTheme.typography.titleSmall, color = Primary, fontWeight = FontWeight.Bold)
                     Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (index < 2) HorizontalDivider(modifier = Modifier.width(1.dp).height(40.dp).padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
@@ -266,7 +334,14 @@ private fun WorkerStatsStrip(worker: Worker) {
 }
 
 @Composable
-private fun WorkerActionRow(phone: String, onCall: () -> Unit, onWhatsApp: () -> Unit, onBook: () -> Unit) {
+private fun WorkerActionRow(
+    phone: String,
+    email: String,
+    onCall: () -> Unit,
+    onWhatsApp: () -> Unit,
+    onEmail: () -> Unit,
+    onBook: () -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -276,7 +351,12 @@ private fun WorkerActionRow(phone: String, onCall: () -> Unit, onWhatsApp: () ->
                 Icon(Icons.Default.Call, contentDescription = "Call Worker", tint = Primary)
             }
             OutlinedIconButton(onClick = onWhatsApp, modifier = Modifier.size(46.dp), shape = CircleShape) {
-                Icon(Icons.Default.Chat, contentDescription = "WhatsApp Worker", tint = Primary)
+                Icon(Icons.Default.Chat, contentDescription = "WhatsApp", tint = Color(0xFF25D366))
+            }
+        }
+        if (email.isNotBlank()) {
+            OutlinedIconButton(onClick = onEmail, modifier = Modifier.size(46.dp), shape = CircleShape) {
+                Icon(Icons.Default.Email, contentDescription = "Email Worker", tint = Primary)
             }
         }
         Button(
@@ -304,7 +384,7 @@ private fun VerificationBadge() {
             Spacer(Modifier.width(10.dp))
             Column {
                 Text("Background Verified", style = MaterialTheme.typography.labelLarge, color = Success, fontWeight = FontWeight.Bold)
-                Text("ID, license & police clearance checked", style = MaterialTheme.typography.bodySmall, color = Success.copy(alpha = 0.8f))
+                Text("ID & license checked", style = MaterialTheme.typography.bodySmall, color = Success.copy(alpha = 0.8f))
             }
         }
     }
@@ -328,7 +408,12 @@ private fun ServicePricingRow(service: Service) {
                 Text(service.estimatedDuration.displayLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text(CurrencyUtils.formatRupees(service.startingPrice), style = MaterialTheme.typography.titleSmall, color = Primary, fontWeight = FontWeight.Bold)
+                Text(
+                    "~${CurrencyUtils.formatRupees(service.startingPrice)}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Primary,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(service.pricingType.displayLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -371,6 +456,13 @@ private fun ReviewPreviewCard(review: Review) {
                     repeat(review.rating) { Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp)) }
                 }
             }
+            if (review.serviceType.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Surface(shape = RoundedCornerShape(8.dp), color = PrimaryTint) {
+                    Text(review.serviceType, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall, color = Primary)
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text(review.comment, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3)
         }
@@ -386,8 +478,13 @@ private fun WorkerProfileBottomBar(startingPrice: Int, onBook: () -> Unit) {
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Column {
-                Text("Starting from", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(CurrencyUtils.formatRupees(startingPrice), style = MaterialTheme.typography.titleLarge, color = Primary, fontWeight = FontWeight.ExtraBold)
+                Text("Approx. starting from", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (startingPrice > 0) "~${CurrencyUtils.formatRupees(startingPrice)}" else "Contact for price",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Primary,
+                    fontWeight = FontWeight.ExtraBold
+                )
             }
             Button(
                 onClick = onBook,

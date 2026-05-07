@@ -4,27 +4,26 @@ import com.google.firebase.Timestamp
 
 /**
  * Customer review for a completed booking.
- * Displayed on WorkerProfileScreen (preview) and ReviewsScreen (full list).
  */
 data class Review(
     val id: String = "",
     val workerId: String = "",
     val customerId: String = "",
     val customerName: String = "",
-    val customerInitial: String = "",    // First letter of name for avatar
+    val customerInitial: String = "",
     val customerAvatarUrl: String = "",
-    val rating: Int = 5,                // 1–5 stars
+    val rating: Int = 5,
     val comment: String = "",
-    val serviceType: String = "",        // e.g. "Electrical Repair"
+    val serviceType: String = "",
     val photoUrls: List<String> = emptyList(),
     val helpfulCount: Int = 0,
-    val isVerified: Boolean = false,     // Verified purchase
+    val isVerified: Boolean = false,
+    val bookingId: String = "",
     val createdAt: Timestamp = Timestamp.now(),
 )
 
 /**
  * Aggregated rating statistics for a worker.
- * Used in RatingBreakdown composable on ReviewsScreen.
  */
 data class RatingStats(
     val averageRating: Float = 0f,
