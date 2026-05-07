@@ -3,10 +3,11 @@ package com.kaushalyakarnataka.app.data.repository
 import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.kaushalyakarnataka.app.data.firebase.FirestoreCollections
+import com.kaushalyakarnataka.app.data.model.AppNotification
 import com.kaushalyakarnataka.app.data.model.Booking
 import com.kaushalyakarnataka.app.data.model.BookingStatus
+import com.kaushalyakarnataka.app.data.model.NotificationType
 import com.kaushalyakarnataka.app.utils.UiState
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
@@ -25,6 +26,7 @@ interface BookingRepository {
 
 class BookingRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
+    private val notificationRepository: NotificationRepository
 ) : BookingRepository {
 
     private val bookingsRef get() = firestore.collection(FirestoreCollections.BOOKINGS)
@@ -39,7 +41,6 @@ class BookingRepositoryImpl @Inject constructor(
                 status = BookingStatus.PENDING,
                 createdAt = Timestamp.now(),
             )
-            // Save as a Map to ensure field names match exactly
             val bookingMap = mapOf(
                 "id" to newBooking.id,
                 "customerId" to newBooking.customerId,
@@ -60,7 +61,19 @@ class BookingRepositoryImpl @Inject constructor(
                 "createdAt" to newBooking.createdAt,
             )
             bookingsRef.document(bookingId).set(bookingMap).await()
-            Log.i(TAG, "Booking created: $bookingId for customer ${newBooking.customerId}")
+
+            // Notify worker of new booking request
+            notificationRepository.sendNotification(
+                AppNotification(
+                    userId = newBooking.workerId,
+                    title = "New Booking Request! 🔔",
+                    message = "${newBooking.customerName} has requested ${newBooking.service} on ${newBooking.timeSlot}",
+                    type = NotificationType.BOOKING_REQUEST,
+                    bookingId = bookingId
+                )
+            )
+
+            Log.i(TAG, "Booking created: $bookingId")
             UiState.Success(newBooking)
         } catch (e: Exception) {
             Log.e(TAG, "createBooking failed", e)
@@ -70,35 +83,8 @@ class BookingRepositoryImpl @Inject constructor(
 
     override suspend fun getCustomerBookings(customerId: String): UiState<List<Booking>> {
         return try {
-            val snapshot = bookingsRef
-                .whereEqualTo("customerId", customerId)
-                .get()
-                .await()
-            val bookings = snapshot.documents.mapNotNull { doc ->
-                try {
-                    val data = doc.data ?: return@mapNotNull null
-                    Booking(
-                        id = data["id"] as? String ?: doc.id,
-                        customerId = data["customerId"] as? String ?: "",
-                        customerName = data["customerName"] as? String ?: "",
-                        workerId = data["workerId"] as? String ?: "",
-                        workerName = data["workerName"] as? String ?: "",
-                        service = data["service"] as? String ?: "",
-                        scheduledDate = data["scheduledDate"] as? Timestamp ?: Timestamp.now(),
-                        timeSlot = data["timeSlot"] as? String ?: "",
-                        address = data["address"] as? String ?: "",
-                        notes = data["notes"] as? String ?: "",
-                        status = BookingStatus.valueOf(data["status"] as? String ?: "PENDING"),
-                        estimatedCostMin = (data["estimatedCostMin"] as? Long)?.toInt() ?: 0,
-                        estimatedCostMax = (data["estimatedCostMax"] as? Long)?.toInt() ?: 0,
-                        bookingCode = data["bookingCode"] as? String ?: "",
-                        createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
-                    )
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse booking ${doc.id}", e)
-                    null
-                }
-            }.sortedByDescending { it.createdAt.seconds }
+            val snapshot = bookingsRef.whereEqualTo("customerId", customerId).get().await()
+            val bookings = parseBookings(snapshot.documents).sortedByDescending { it.createdAt.seconds }
             UiState.Success(bookings)
         } catch (e: Exception) {
             Log.e(TAG, "getCustomerBookings failed", e)
@@ -108,12 +94,8 @@ class BookingRepositoryImpl @Inject constructor(
 
     override suspend fun getWorkerBookings(workerId: String): UiState<List<Booking>> {
         return try {
-            val snapshot = bookingsRef
-                .whereEqualTo("workerId", workerId)
-                .get()
-                .await()
-            val bookings = parseBookings(snapshot.documents)
-                .sortedBy { it.scheduledDate.seconds }
+            val snapshot = bookingsRef.whereEqualTo("workerId", workerId).get().await()
+            val bookings = parseBookings(snapshot.documents).sortedBy { it.scheduledDate.seconds }
             UiState.Success(bookings)
         } catch (e: Exception) {
             Log.e(TAG, "getWorkerBookings failed", e)
@@ -126,30 +108,58 @@ class BookingRepositoryImpl @Inject constructor(
             val snapshot = bookingsRef
                 .whereEqualTo("workerId", workerId)
                 .whereEqualTo("status", BookingStatus.PENDING.name)
-                .get()
-                .await()
+                .get().await()
             UiState.Success(parseBookings(snapshot.documents))
         } catch (e: Exception) {
-            Log.e(TAG, "getWorkerPendingBookings failed", e)
-            // Fallback: get all worker bookings and filter
-            try {
-                val allResult = getWorkerBookings(workerId)
-                if (allResult is UiState.Success) {
-                    UiState.Success(allResult.data.filter { it.status == BookingStatus.PENDING })
-                } else {
-                    UiState.Success(emptyList())
-                }
-            } catch (ex: Exception) {
-                UiState.Success(emptyList())
-            }
+            val allResult = getWorkerBookings(workerId)
+            if (allResult is UiState.Success) {
+                UiState.Success(allResult.data.filter { it.status == BookingStatus.PENDING })
+            } else UiState.Success(emptyList())
         }
     }
 
     override suspend fun updateBookingStatus(bookingId: String, status: BookingStatus): UiState<Unit> {
         return try {
-            bookingsRef.document(bookingId)
-                .update("status", status.name)
-                .await()
+            bookingsRef.document(bookingId).update("status", status.name).await()
+
+            // Fetch booking to get details for notification
+            val bookingResult = getBookingById(bookingId)
+            if (bookingResult is UiState.Success) {
+                val booking = bookingResult.data
+                val (title, message, notifType, targetUserId) = when (status) {
+                    BookingStatus.CONFIRMED -> Quad(
+                        "Booking Confirmed! ✅",
+                        "${booking.workerName} has accepted your booking for ${booking.service}",
+                        NotificationType.BOOKING_CONFIRMED,
+                        booking.customerId
+                    )
+                    BookingStatus.CANCELLED -> Quad(
+                        "Booking Declined",
+                        "Your booking for ${booking.service} was declined",
+                        NotificationType.BOOKING_DECLINED,
+                        booking.customerId
+                    )
+                    BookingStatus.COMPLETED -> Quad(
+                        "Job Completed! 🎉",
+                        "${booking.workerName} has marked ${booking.service} as complete. Please confirm.",
+                        NotificationType.BOOKING_COMPLETED,
+                        booking.customerId
+                    )
+                    else -> null
+                }
+                if (title != null && targetUserId.isNotBlank()) {
+                    notificationRepository.sendNotification(
+                        AppNotification(
+                            userId = targetUserId,
+                            title = title,
+                            message = message,
+                            type = notifType,
+                            bookingId = bookingId
+                        )
+                    )
+                }
+            }
+
             Log.i(TAG, "Booking $bookingId updated to ${status.name}")
             UiState.Success(Unit)
         } catch (e: Exception) {
@@ -162,24 +172,7 @@ class BookingRepositoryImpl @Inject constructor(
         return try {
             val snapshot = bookingsRef.document(bookingId).get().await()
             val data = snapshot.data ?: return UiState.Error("Booking not found")
-            val booking = Booking(
-                id = data["id"] as? String ?: bookingId,
-                customerId = data["customerId"] as? String ?: "",
-                customerName = data["customerName"] as? String ?: "",
-                workerId = data["workerId"] as? String ?: "",
-                workerName = data["workerName"] as? String ?: "",
-                service = data["service"] as? String ?: "",
-                scheduledDate = data["scheduledDate"] as? Timestamp ?: Timestamp.now(),
-                timeSlot = data["timeSlot"] as? String ?: "",
-                address = data["address"] as? String ?: "",
-                notes = data["notes"] as? String ?: "",
-                status = BookingStatus.valueOf(data["status"] as? String ?: "PENDING"),
-                estimatedCostMin = (data["estimatedCostMin"] as? Long)?.toInt() ?: 0,
-                estimatedCostMax = (data["estimatedCostMax"] as? Long)?.toInt() ?: 0,
-                bookingCode = data["bookingCode"] as? String ?: "",
-                createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
-            )
-            UiState.Success(booking)
+            UiState.Success(parseBookingData(data, bookingId))
         } catch (e: Exception) {
             UiState.Error(e.message ?: "Failed to load booking")
         }
@@ -189,30 +182,36 @@ class BookingRepositoryImpl @Inject constructor(
         return docs.mapNotNull { doc ->
             try {
                 val data = doc.data ?: return@mapNotNull null
-                Booking(
-                    id = data["id"] as? String ?: doc.id,
-                    customerId = data["customerId"] as? String ?: "",
-                    customerName = data["customerName"] as? String ?: "",
-                    workerId = data["workerId"] as? String ?: "",
-                    workerName = data["workerName"] as? String ?: "",
-                    service = data["service"] as? String ?: "",
-                    scheduledDate = data["scheduledDate"] as? Timestamp ?: Timestamp.now(),
-                    timeSlot = data["timeSlot"] as? String ?: "",
-                    address = data["address"] as? String ?: "",
-                    notes = data["notes"] as? String ?: "",
-                    status = BookingStatus.valueOf(data["status"] as? String ?: "PENDING"),
-                    estimatedCostMin = (data["estimatedCostMin"] as? Long)?.toInt() ?: 0,
-                    estimatedCostMax = (data["estimatedCostMax"] as? Long)?.toInt() ?: 0,
-                    bookingCode = data["bookingCode"] as? String ?: "",
-                    createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
-                )
+                parseBookingData(data, doc.id)
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to parse booking ${doc.id}", e)
                 null
             }
         }
     }
+
+    private fun parseBookingData(data: Map<String, Any>, docId: String): Booking {
+        return Booking(
+            id = data["id"] as? String ?: docId,
+            customerId = data["customerId"] as? String ?: "",
+            customerName = data["customerName"] as? String ?: "",
+            workerId = data["workerId"] as? String ?: "",
+            workerName = data["workerName"] as? String ?: "",
+            service = data["service"] as? String ?: "",
+            scheduledDate = data["scheduledDate"] as? Timestamp ?: Timestamp.now(),
+            timeSlot = data["timeSlot"] as? String ?: "",
+            address = data["address"] as? String ?: "",
+            notes = data["notes"] as? String ?: "",
+            status = try { BookingStatus.valueOf(data["status"] as? String ?: "PENDING") } catch (e: Exception) { BookingStatus.PENDING },
+            estimatedCostMin = (data["estimatedCostMin"] as? Long)?.toInt() ?: 0,
+            estimatedCostMax = (data["estimatedCostMax"] as? Long)?.toInt() ?: 0,
+            bookingCode = data["bookingCode"] as? String ?: "",
+            createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
+        )
+    }
 }
+
+private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
 fun sampleBookings() = listOf(
     Booking(
@@ -238,23 +237,9 @@ fun sampleBookings() = listOf(
         service = "Fan Installation × 2",
         timeSlot = "2:00 PM",
         address = "HSR Layout, Sector 6",
-        status = BookingStatus.PENDING,
+        status = BookingStatus.CONFIRMED,
         estimatedCostMin = 700,
         estimatedCostMax = 1000,
         bookingCode = "#KK-2024-0107",
-    ),
-    Booking(
-        id = "booking3",
-        customerId = "customer3",
-        customerName = "Sneha Reddy",
-        workerId = "worker1",
-        workerName = "Ramesh Kumar",
-        service = "Home Wiring",
-        timeSlot = "9:00 AM",
-        address = "Indiranagar, 12th Main",
-        status = BookingStatus.CONFIRMED,
-        estimatedCostMin = 900,
-        estimatedCostMax = 1200,
-        bookingCode = "#KK-2024-0108",
     ),
 )
