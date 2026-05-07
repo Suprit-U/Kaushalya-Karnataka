@@ -159,7 +159,8 @@ fun PortfolioScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Surface(modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), color = PrimaryTint) {
                         Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${(portfolioItems as? UiState.Success)?.data?.size ?: 0}", style = MaterialTheme.typography.titleLarge, color = Primary, fontWeight = FontWeight.ExtraBold)
+                            val itemCount = (portfolioItems as? UiState.Success<List<PortfolioItem>>)?.data?.size ?: 0
+                            Text("$itemCount", style = MaterialTheme.typography.titleLarge, color = Primary, fontWeight = FontWeight.ExtraBold)
                             Text("Photos", style = MaterialTheme.typography.labelSmall, color = Primary.copy(0.7f))
                         }
                     }
@@ -184,7 +185,7 @@ fun PortfolioScreen(
                         CircularProgressIndicator(color = Primary)
                     }
                 }
-                is UiState.Success -> {
+                is UiState.Success<List<PortfolioItem>> -> {
                     if (pState.data.isEmpty()) {
                         item {
                             Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceVariant) {

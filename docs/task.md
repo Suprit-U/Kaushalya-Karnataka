@@ -43,6 +43,7 @@ Last updated: 2026-05-06
 - [x] `data/model/Booking.kt`
 - [x] `data/model/Review.kt`
 - [x] `data/model/Service.kt`
+- [x] `data/model/Notification.kt`
 - [x] Pricing, duration, booking status, and rating stats models aligned with callers.
 
 ## Phase 5: Firebase, Supabase, and DI
@@ -62,6 +63,7 @@ Last updated: 2026-05-06
 - [x] `data/repository/ReviewRepository.kt`
 - [x] `data/repository/ServiceRepository.kt`
 - [x] `data/repository/StorageRepository.kt`
+- [x] `data/repository/NotificationRepository.kt`
 - [x] Sample fallback data compiles against current models.
 
 ## Phase 7: Utils
@@ -82,6 +84,7 @@ Last updated: 2026-05-06
 - [x] `viewmodel/WorkerDashboardViewModel.kt`
 - [x] `viewmodel/ServiceViewModel.kt`
 - [x] `viewmodel/PortfolioViewModel.kt`
+- [x] `viewmodel/NotificationViewModel.kt`
 
 ## Phase 9: UI Components
 
@@ -125,6 +128,7 @@ Last updated: 2026-05-06
 - [x] `ui/screens/worker/WorkerSelfProfileScreen.kt`
 - [x] `ui/screens/worker/AddServiceScreen.kt`
 - [x] `ui/screens/worker/PortfolioScreen.kt`
+- [x] `ui/screens/common/NotificationsScreen.kt`
 - [x] `ui/screens/common/LoadingScreen.kt`
 - [x] Worker dashboard quick actions wired to real dashboard sections.
 

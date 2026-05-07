@@ -27,8 +27,8 @@ app/src/main/java/com/kaushalyakarnataka/app/
 
 Data models, Firebase constants, and local database definitions.
 
-- `model/`: Domain models (User, Worker, Service, Booking, Review).
-- `repository/`: Repository implementations (Auth, Worker, Booking, Review, Service, Storage).
+- `model/`: Domain models (User, Worker, Service, Booking, Review, Notification).
+- `repository/`: Repository implementations (Auth, Worker, Booking, Review, Service, Storage, Notification).
 - `firebase/`: Firebase configuration and Firestore constants.
 - `local/`: Room database configuration.
   - `LocalDatabase.kt`: Consolidated Room entities, DAOs, and database class.
@@ -98,7 +98,7 @@ Full screens categorized by user role:
   - `WorkerSelfProfileScreen.kt`: Worker's own profile management.
   - `AddServiceScreen.kt`: Service management for workers.
   - `PortfolioScreen.kt`: Portfolio management.
-- `common/`: Shared screens like `LoadingScreen.kt`.
+- `common/`: Shared screens like `LoadingScreen.kt` and `NotificationsScreen.kt`.
 
 #### `ui/theme/`
 
@@ -131,6 +131,7 @@ Screen-level state management and business logic:
 - `WorkerDashboardViewModel.kt`: Job management for workers.
 - `CustomerBookingsViewModel.kt`: Booking history management.
 - `ProfileViewModel.kt`: User profile updates and avatar uploads.
+- `NotificationViewModel.kt`: Notifications management.
 
 ## Resources
 

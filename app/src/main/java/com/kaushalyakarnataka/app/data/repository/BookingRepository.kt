@@ -126,7 +126,7 @@ class BookingRepositoryImpl @Inject constructor(
             val bookingResult = getBookingById(bookingId)
             if (bookingResult is UiState.Success) {
                 val booking = bookingResult.data
-                val (title, message, notifType, targetUserId) = when (status) {
+                val notificationData = when (status) {
                     BookingStatus.CONFIRMED -> Quad(
                         "Booking Confirmed! ✅",
                         "${booking.workerName} has accepted your booking for ${booking.service}",
@@ -147,7 +147,8 @@ class BookingRepositoryImpl @Inject constructor(
                     )
                     else -> null
                 }
-                if (title != null && targetUserId.isNotBlank()) {
+                if (notificationData != null) {
+                    val (title, message, notifType, targetUserId) = notificationData
                     notificationRepository.sendNotification(
                         AppNotification(
                             userId = targetUserId,

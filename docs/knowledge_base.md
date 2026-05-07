@@ -1,6 +1,9 @@
 # Knowledge Base
 
 ## Recent Architecture & UI Fixes
+- **BookingRepository**: Fixed a compilation crash caused by unsafe destructuring of nullable values in the booking status logic. Added explicit null checks.
+- **Portfolio Management**: Implemented missing `portfolioItems` StateFlow and `deletePortfolioItem` function in `PortfolioViewModel`.
+- **Type Safety**: Resolved type inference errors in `PortfolioScreen.kt` by providing explicit type arguments to `UiState.Success`.
 - **Room Consolidation**: Replaced multiple Room DAO and Entity files with a single, optimized [LocalDatabase.kt](file:///d:/Dev-Tools/Android-Studio/Projects/Kaushalya-Karnataka/app/src/main/java/com/kaushalyakarnataka/app/data/local/LocalDatabase.kt).
 - **Consolidated DI**: Integrated database provisioning into `DatabaseModule.kt` for cleaner dependency management.
 - **Advanced Navigation**: Replaced the standard `BottomNavBar` with `KaushalyaBottomNav`, featuring custom animations and role-based destination management.

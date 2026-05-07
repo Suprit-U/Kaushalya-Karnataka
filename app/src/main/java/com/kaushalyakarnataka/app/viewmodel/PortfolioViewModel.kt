@@ -28,6 +28,31 @@ class PortfolioViewModel @Inject constructor(
     private val _uploadState = MutableStateFlow<UiState<PortfolioItem>?>(null)
     val uploadState: StateFlow<UiState<PortfolioItem>?> = _uploadState.asStateFlow()
 
+    private val _portfolioItems = MutableStateFlow<UiState<List<PortfolioItem>>>(UiState.Loading)
+    val portfolioItems: StateFlow<UiState<List<PortfolioItem>>> = _portfolioItems.asStateFlow()
+
+    init {
+        fetchPortfolioItems()
+    }
+
+    fun fetchPortfolioItems() {
+        val workerId = authRepository.currentUser?.uid ?: return
+        viewModelScope.launch {
+            _portfolioItems.value = UiState.Loading
+            try {
+                val snapshot = firestore.collection(FirestoreCollections.WORKERS)
+                    .document(workerId)
+                    .collection("portfolio")
+                    .get()
+                    .await()
+                val items = snapshot.toObjects(PortfolioItem::class.java)
+                _portfolioItems.value = UiState.Success(items)
+            } catch (e: Exception) {
+                _portfolioItems.value = UiState.Error("Failed to fetch portfolio items: ${e.message}")
+            }
+        }
+    }
+
     fun uploadPortfolioItem(imageBytes: ByteArray, caption: String, category: ServiceCategory) {
         val workerId = authRepository.currentUser?.uid ?: return
 
@@ -58,11 +83,29 @@ class PortfolioViewModel @Inject constructor(
                         .await()
                     
                     _uploadState.value = UiState.Success(item)
+                    fetchPortfolioItems() // Refresh the list
                 } catch (e: Exception) {
                     _uploadState.value = UiState.Error("Failed to save portfolio metadata")
                 }
             } else if (uploadResult is UiState.Error) {
                 _uploadState.value = UiState.Error(uploadResult.message)
+            }
+        }
+    }
+
+    fun deletePortfolioItem(itemId: String) {
+        val workerId = authRepository.currentUser?.uid ?: return
+        viewModelScope.launch {
+            try {
+                firestore.collection(FirestoreCollections.WORKERS)
+                    .document(workerId)
+                    .collection("portfolio")
+                    .document(itemId)
+                    .delete()
+                    .await()
+                fetchPortfolioItems() // Refresh list
+            } catch (e: Exception) {
+                // Silently fail or log
             }
         }
     }
