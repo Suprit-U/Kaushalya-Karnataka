@@ -68,7 +68,6 @@ class WorkerDashboardViewModel @Inject constructor(
                 _upcomingJobs.value = UiState.Success(upcoming)
 
                 val completed = allBookingsResult.data.filter { it.status == BookingStatus.COMPLETED }
-                // Use finalAmount if set, else estimatedCostMax
                 val totalEarnings = completed.sumOf { b ->
                     if (b.finalAmount > 0) b.finalAmount else b.estimatedCostMax
                 }
@@ -121,7 +120,15 @@ class WorkerDashboardViewModel @Inject constructor(
     fun proposeNegotiatedAmount(bookingId: String, amount: Int) {
         _negotiationProposalState.value = UiState.Loading
         viewModelScope.launch {
-            _negotiationProposalState.value = bookingRepository.proposeNegotiatedAmount(bookingId, amount)
+            _negotiationProposalState.value = bookingRepository.counterFinalAmount(bookingId, amount)
+            loadDashboardData()
+        }
+    }
+
+    fun approveCustomerFinalAmount(bookingId: String) {
+        _negotiationProposalState.value = UiState.Loading
+        viewModelScope.launch {
+            _negotiationProposalState.value = bookingRepository.approveCustomerFinalAmount(bookingId)
             loadDashboardData()
         }
     }

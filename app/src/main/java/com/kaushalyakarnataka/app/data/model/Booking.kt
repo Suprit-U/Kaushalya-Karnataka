@@ -21,6 +21,8 @@ data class Booking(
     val estimatedCostMin: Int = 0,
     val estimatedCostMax: Int = 0,
     val finalAmount: Int = 0,          // Confirmed final paid amount
+    val customerProposedAmount: Int = 0,
+    val workerCounterAmount: Int = 0,
     val negotiatedAmount: Int = 0,     // Worker-proposed final amount
     val negotiationStatus: NegotiationStatus = NegotiationStatus.NONE,
     val bookingCode: String = "",
@@ -40,6 +42,10 @@ enum class BookingStatus {
 
 enum class NegotiationStatus {
     NONE,
+    CUSTOMER_PROPOSED,
+    WORKER_APPROVED,
+    WORKER_REJECTED,
+    WORKER_COUNTERED,
     WORKER_PROPOSED,
     CUSTOMER_ACCEPTED,
     CUSTOMER_REJECTED,

@@ -62,7 +62,7 @@ fun SearchResultCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    val priceText = if (worker.pricePerHour > 0) "${CurrencyUtils.formatRupees(worker.pricePerHour)}/hr" else "Contact for price"
+                    val priceText = if (worker.displayBaseCharge > 0) "~${CurrencyUtils.formatRupees(worker.displayBaseCharge)} starting" else "Book Now"
                     Text(
                         text = priceText,
                         style = MaterialTheme.typography.labelLarge,

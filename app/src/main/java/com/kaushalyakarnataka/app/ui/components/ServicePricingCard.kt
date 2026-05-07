@@ -74,7 +74,7 @@ fun ServicePricingCard(
                         )
                     } else {
                         Text(
-                            text = "Contact for price",
+                            text = "Set by worker",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary

@@ -59,6 +59,19 @@ fun ReviewsScreen(
             }
             is UiState.Success -> {
                 val reviews = state.data
+                if (reviews.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No reviews yet",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    return@Scaffold
+                }
                 
                 // Calculate stats
                 val totalReviews = reviews.size

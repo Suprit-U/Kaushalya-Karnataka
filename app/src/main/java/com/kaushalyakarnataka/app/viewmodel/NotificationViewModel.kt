@@ -7,6 +7,7 @@ import com.kaushalyakarnataka.app.data.repository.AuthRepository
 import com.kaushalyakarnataka.app.data.repository.NotificationRepository
 import com.kaushalyakarnataka.app.utils.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,10 +26,19 @@ class NotificationViewModel @Inject constructor(
     private val _unreadCount = MutableStateFlow(0)
     val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
 
+    private var notificationJob: Job? = null
+
     init { load() }
 
     fun load() {
         val uid = authRepository.currentUser?.uid ?: return
+        notificationJob?.cancel()
+        notificationJob = viewModelScope.launch {
+            notificationRepository.observeNotifications(uid).collect { state ->
+                _notifications.value = state
+                _unreadCount.value = (state as? UiState.Success)?.data?.count { !it.isRead } ?: 0
+            }
+        }
         viewModelScope.launch {
             _notifications.value = notificationRepository.getNotifications(uid)
             _unreadCount.value = notificationRepository.getUnreadCount(uid)

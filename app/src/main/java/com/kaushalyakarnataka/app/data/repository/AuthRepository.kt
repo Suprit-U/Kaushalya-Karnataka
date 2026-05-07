@@ -30,6 +30,7 @@ interface AuthRepository {
     suspend fun signOut()
     suspend fun getUserProfile(uid: String): UiState<User>
     suspend fun updateUserProfile(uid: String, name: String, phone: String, location: String = ""): UiState<Unit>
+    suspend fun updateSavedAddresses(uid: String, homeAddress: String, workAddress: String): UiState<Unit>
 }
 
 class AuthRepositoryImpl @Inject constructor(
@@ -148,6 +149,7 @@ class AuthRepositoryImpl @Inject constructor(
                     "bio" to "",
                     "rating" to 0.0,
                     "reviewCount" to 0,
+                    "baseLabourCharge" to 0,
                     "experienceYears" to 0,
                     "successRate" to 0,
                     "pricePerHour" to 0,
@@ -220,6 +222,22 @@ class AuthRepositoryImpl @Inject constructor(
             UiState.Success(Unit)
         } catch (e: Exception) {
             UiState.Error(e.message ?: "Failed to update profile")
+        }
+    }
+
+    override suspend fun updateSavedAddresses(uid: String, homeAddress: String, workAddress: String): UiState<Unit> {
+        return try {
+            firestore.collection(FirestoreCollections.USERS).document(uid)
+                .update(
+                    mapOf(
+                        "homeAddress" to homeAddress.trim(),
+                        "workAddress" to workAddress.trim(),
+                    )
+                )
+                .await()
+            UiState.Success(Unit)
+        } catch (e: Exception) {
+            UiState.Error(e.message ?: "Failed to save addresses")
         }
     }
 }

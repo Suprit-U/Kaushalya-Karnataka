@@ -9,6 +9,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.EventNote
+import androidx.compose.material.icons.automirrored.outlined.EventNote
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -31,7 +33,7 @@ enum class NavDestination(
 ) {
     HOME("Home", Icons.Filled.Home, Icons.Outlined.Home),
     SEARCH("Explore", Icons.Filled.Search, Icons.Outlined.Search),
-    BOOKINGS("Bookings", Icons.Filled.EventNote, Icons.Outlined.EventNote),
+    BOOKINGS("Bookings", Icons.AutoMirrored.Filled.EventNote, Icons.AutoMirrored.Outlined.EventNote),
     PROFILE("Profile", Icons.Filled.Person, Icons.Outlined.Person)
 }
 

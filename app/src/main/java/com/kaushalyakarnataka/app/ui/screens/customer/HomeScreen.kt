@@ -63,9 +63,7 @@ fun HomeScreen(
             }
 
             // ── Promo Banner ──
-            item {
-                PromoBannerCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            }
+            item { PromoBannerCarousel() }
 
             // ── Category Section ──
             item {
@@ -267,6 +265,61 @@ private fun PromoBannerCard(modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun PromoBannerCarousel() {
+    val banners = listOf(
+        PromoCardData("Rs. 100 OFF", "First booking discount", "KAUSHAL100", Secondary, SecondaryDark),
+        PromoCardData("Trusted nearby", "Verified workers around you", "Book today", Primary, PrimaryLight),
+        PromoCardData("Fast AC repair", "Same-day cooling fixes", "From top-rated techs", Color(0xFF0E7490), Color(0xFF0891B2)),
+        PromoCardData("Weekend cleaning", "Fresh home, flexible slots", "Limited slots", Color(0xFF047857), Color(0xFF10B981)),
+        PromoCardData("Festival offers", "Painter and cleaning deals", "Season special", Color(0xFF9D174D), Color(0xFFDB2777))
+    )
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        items(banners) { banner ->
+            PromoMiniCard(banner = banner)
+        }
+    }
+}
+
+private data class PromoCardData(
+    val title: String,
+    val subtitle: String,
+    val action: String,
+    val start: Color,
+    val end: Color
+)
+
+@Composable
+private fun PromoMiniCard(banner: PromoCardData) {
+    Box(
+        modifier = Modifier
+            .width(280.dp)
+            .height(132.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(Brush.linearGradient(listOf(banner.start, banner.end)))
+            .padding(18.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text(banner.title, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.ExtraBold)
+                Text(banner.subtitle, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.88f))
+            }
+            Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.18f)) {
+                Text(
+                    banner.action,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun HomeCategoryGrid(onCategoryClick: (ServiceCategory) -> Unit) {
     val cats = listOf(
         CategoryItem(ServiceCategory.ELECTRICIAN, Icons.Filled.ElectricalServices, Color(0xFF1E3A8A), Color(0xFFDBEAFE)),
@@ -371,7 +424,7 @@ fun TopWorkerCard(worker: Worker, onClick: () -> Unit) {
                 Text(worker.category.displayName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    val priceText = if (worker.pricePerHour > 0) CurrencyUtils.formatRupees(worker.pricePerHour) + "/hr" else "Contact for price"
+                    val priceText = if (worker.displayBaseCharge > 0) "~${CurrencyUtils.formatRupees(worker.displayBaseCharge)}" else "Book Now"
                     Text(
                         priceText,
                         style = MaterialTheme.typography.labelMedium,
@@ -429,17 +482,17 @@ fun WorkerListCard(worker: Worker, onClick: () -> Unit, modifier: Modifier = Mod
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                if (worker.pricePerHour > 0) {
+                if (worker.displayBaseCharge > 0) {
                     Text(
-                        CurrencyUtils.formatRupees(worker.pricePerHour),
+                        "~${CurrencyUtils.formatRupees(worker.displayBaseCharge)}",
                         style = MaterialTheme.typography.titleSmall,
                         color = Primary,
                         fontWeight = FontWeight.Bold
                     )
-                    Text("/hr", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("starting", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text(
-                        "Contact for price",
+                        "Book Now",
                         style = MaterialTheme.typography.labelSmall,
                         color = Primary,
                         fontWeight = FontWeight.Bold

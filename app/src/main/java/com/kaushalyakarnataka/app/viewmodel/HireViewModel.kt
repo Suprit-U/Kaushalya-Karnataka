@@ -72,8 +72,18 @@ class HireViewModel @Inject constructor(
                                else currentUser.displayName ?: "Customer"
 
             val selectedSvc = _selectedService.value
-            val estimatedMin = selectedSvc?.startingPrice ?: worker.pricePerHour
-            val estimatedMax = (selectedSvc?.startingPrice ?: worker.pricePerHour) * 2
+            val baseCharge = worker.displayBaseCharge
+            val serviceCharge = selectedSvc?.startingPrice ?: 0
+            val estimatedMin = when {
+                baseCharge > 0 -> baseCharge
+                serviceCharge > 0 -> serviceCharge
+                else -> 0
+            }
+            val estimatedMax = when {
+                baseCharge > 0 && serviceCharge > 0 -> baseCharge + serviceCharge
+                estimatedMin > 0 -> estimatedMin
+                else -> 0
+            }
 
             val booking = Booking(
                 customerId = currentUser.uid,

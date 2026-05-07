@@ -45,19 +45,22 @@ class EditProfileViewModel @Inject constructor(
         _updateState.value = UiState.Loading
         viewModelScope.launch {
             try {
-                val updatedUser = currentProfile.copy(
-                    name = name,
-                    phone = phone,
-                    location = location
+                val result = authRepository.updateUserProfile(
+                    uid = currentUser.uid,
+                    name = name.trim(),
+                    phone = phone.trim(),
+                    location = location.trim()
                 )
-                // In a real app, we'd have a separate method in repository to update profile
-                // For now, let's just reuse signUp logic or assume repository can handle it
-                // Adding a placeholder for actual update logic
-                // _updateState.value = authRepository.updateProfile(updatedUser)
-                
-                // For demo purposes, we'll just succeed
-                _updateState.value = UiState.Success(Unit)
-                _userState.value = UiState.Success(updatedUser)
+                _updateState.value = result
+                if (result is UiState.Success) {
+                    _userState.value = UiState.Success(
+                        currentProfile.copy(
+                            name = name.trim(),
+                            phone = phone.trim(),
+                            location = location.trim()
+                        )
+                    )
+                }
             } catch (e: Exception) {
                 _updateState.value = UiState.Error(e.message ?: "Failed to update profile")
             }

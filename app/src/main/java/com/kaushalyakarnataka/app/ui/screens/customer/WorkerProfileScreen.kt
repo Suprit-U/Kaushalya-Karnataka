@@ -52,7 +52,7 @@ fun WorkerProfileScreen(
             if (profileState is UiState.Success) {
                 val worker = (profileState as UiState.Success).data
                 WorkerProfileBottomBar(
-                    startingPrice = worker.pricePerHour,
+                    startingPrice = worker.displayBaseCharge,
                     onBook = { onNavigateToHire(workerId) }
                 )
             }
@@ -127,30 +127,12 @@ fun WorkerProfileScreen(
                     }
 
                     item {
-                        ProfileSection(title = "About") {
+                        ProfileSection(title = "About Me") {
                             Text(
-                                worker.bio.ifBlank { "Experienced ${worker.category.displayName} available for your service needs." },
+                                worker.bio.ifBlank { "No bio added yet." },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
-                    }
-
-                    if (worker.tags.isNotEmpty()) {
-                        item {
-                            ProfileSection(title = "Skills") {
-                                FlowRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    worker.tags.forEach { tag ->
-                                        Surface(shape = RoundedCornerShape(20.dp), color = PrimaryTint) {
-                                            Text(tag, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                                style = MaterialTheme.typography.labelSmall, color = Primary)
-                                        }
-                                    }
-                                }
-                            }
                         }
                     }
 
@@ -172,7 +154,7 @@ fun WorkerProfileScreen(
                     when (val pv = portfolioState) {
                         is UiState.Success -> if (pv.data.isNotEmpty()) {
                             item {
-                                ProfileSection(title = "Recent Work") {
+                                ProfileSection(title = "Portfolio") {
                                     PortfolioMiniGrid(items = pv.data.take(6))
                                 }
                             }
@@ -322,7 +304,7 @@ private fun WorkerStatsStrip(worker: Worker) {
         Row(modifier = Modifier.fillMaxWidth()) {
             listOf(
                 Pair("${worker.reviewCount}", "Reviews"),
-                Pair(if (worker.pricePerHour > 0) "~${CurrencyUtils.formatRupees(worker.pricePerHour)}/h" else "—", "Rate"),
+                Pair(worker.category.displayName, "Role"),
                 Pair(if (worker.isAvailable) "Available" else "Busy", "Status"),
             ).forEachIndexed { index, (value, label) ->
                 Column(
@@ -423,10 +405,10 @@ private fun ServicePricingRow(service: Service) {
                     Text(service.pricingType.displayLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text(
-                        "Contact for price",
+                        "Set by worker",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Primary,
-                        fontWeight = FontWeight.Bold
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -494,7 +476,7 @@ private fun WorkerProfileBottomBar(startingPrice: Int, onBook: () -> Unit) {
             Column {
                 Text("Approx. starting from", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    if (startingPrice > 0) "~${CurrencyUtils.formatRupees(startingPrice)}" else "Contact for price",
+                    if (startingPrice > 0) "~${CurrencyUtils.formatRupees(startingPrice)} starting" else "Book service",
                     style = MaterialTheme.typography.titleLarge,
                     color = Primary,
                     fontWeight = FontWeight.ExtraBold

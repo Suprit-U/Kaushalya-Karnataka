@@ -19,6 +19,7 @@ import com.kaushalyakarnataka.app.utils.UiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -51,6 +52,9 @@ class WorkerProfileViewModel @Inject constructor(
     private val _updateState = MutableStateFlow<UiState<Unit>?>(null)
     val updateState: StateFlow<UiState<Unit>?> = _updateState.asStateFlow()
 
+    private var workerJob: Job? = null
+    private var reviewsJob: Job? = null
+
     init {
         loadWorkerProfile()
     }
@@ -61,19 +65,37 @@ class WorkerProfileViewModel @Inject constructor(
             return
         }
         viewModelScope.launch {
-            _workerState.value = workerRepository.getWorkerById(workerId)
             _servicesState.value = serviceRepository.getWorkerServices(workerId)
-            _reviewsState.value = reviewRepository.getWorkerReviews(workerId)
             _portfolioState.value = serviceRepository.getWorkerPortfolio(workerId)
             _ratingStatsState.value = reviewRepository.getWorkerRatingStats(workerId)
         }
+        workerJob?.cancel()
+        workerJob = viewModelScope.launch {
+            workerRepository.observeWorkerById(workerId).collect { _workerState.value = it }
+        }
+        reviewsJob?.cancel()
+        reviewsJob = viewModelScope.launch {
+            reviewRepository.observeWorkerReviews(workerId).collect { state ->
+                _reviewsState.value = state
+                if (state is UiState.Success) {
+                    val reviews = state.data
+                    _ratingStatsState.value = UiState.Success(
+                        RatingStats(
+                            averageRating = if (reviews.isEmpty()) 0f else reviews.map { it.rating }.average().toFloat(),
+                            totalReviews = reviews.size,
+                            ratingCounts = (1..5).associateWith { rating -> reviews.count { it.rating == rating } }
+                        )
+                    )
+                }
+            }
+        }
     }
 
-    fun updateWorkerProfile(name: String, phone: String, bio: String, role: String, category: ServiceCategory) {
+    fun updateWorkerProfile(name: String, phone: String, bio: String, role: String, category: ServiceCategory, baseLabourCharge: Int) {
         if (workerId.isBlank()) return
         _updateState.value = UiState.Loading
         viewModelScope.launch {
-            val result = workerRepository.updateWorkerProfileFields(workerId, name, phone, bio, role, category)
+            val result = workerRepository.updateWorkerProfileFields(workerId, name, phone, bio, role, category, baseLabourCharge)
             _updateState.value = result
             if (result is UiState.Success) {
                 loadWorkerProfile()

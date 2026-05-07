@@ -30,6 +30,9 @@ class ProfileViewModel @Inject constructor(
     private val _profileState = MutableStateFlow<UiState<User>>(UiState.Loading)
     val profileState: StateFlow<UiState<User>> = _profileState.asStateFlow()
 
+    private val _updateState = MutableStateFlow<UiState<Unit>?>(null)
+    val updateState: StateFlow<UiState<Unit>?> = _updateState.asStateFlow()
+
     init { loadProfile() }
 
     private fun loadProfile() {
@@ -42,15 +45,39 @@ class ProfileViewModel @Inject constructor(
     fun updateProfile(name: String, phone: String) {
         val uid = authRepository.currentUser?.uid ?: return
         viewModelScope.launch {
-            try {
-                firestore.collection(FirestoreCollections.USERS).document(uid)
-                    .update(mapOf("name" to name, "phone" to phone))
-                    .await()
+            _updateState.value = UiState.Loading
+            val currentLocation = (_profileState.value as? UiState.Success)?.data?.location.orEmpty()
+            val result = authRepository.updateUserProfile(uid, name.trim(), phone.trim(), currentLocation)
+            _updateState.value = result
+            if (result is UiState.Success) {
                 loadProfile()
-            } catch (e: Exception) {
-                // silent - will retry on next load
             }
         }
+    }
+
+    fun updateSavedAddresses(homeAddress: String, workAddress: String) {
+        val uid = authRepository.currentUser?.uid ?: return
+        viewModelScope.launch {
+            _updateState.value = UiState.Loading
+            val result = authRepository.updateSavedAddresses(uid, homeAddress, workAddress)
+            _updateState.value = result
+            if (result is UiState.Success) {
+                val current = (_profileState.value as? UiState.Success)?.data
+                if (current != null) {
+                    _profileState.value = UiState.Success(
+                        current.copy(
+                            homeAddress = homeAddress.trim(),
+                            workAddress = workAddress.trim()
+                        )
+                    )
+                }
+                loadProfile()
+            }
+        }
+    }
+
+    fun clearUpdateState() {
+        _updateState.value = null
     }
 
     fun uploadAvatar(uri: Uri) {

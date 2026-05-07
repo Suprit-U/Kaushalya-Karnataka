@@ -124,7 +124,11 @@ fun WorkerSelfProfileScreen(
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
                                             Icon(Icons.Default.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
-                                            Text("${worker.rating}", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                                            Text(
+                                                if (worker.rating > 0) String.format("%.1f", worker.rating) else "New",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = Color.White
+                                            )
                                         }
                                     }
                                     if (worker.isAvailable) {
@@ -192,7 +196,7 @@ fun WorkerSelfProfileScreen(
                                 Text(worker.bio, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
                                 Text(
-                                    "No bio added yet. Tap edit to add a description of your skills and experience.",
+                                    "No bio added yet. Tap edit to add a short introduction.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                 )
@@ -268,9 +272,10 @@ fun WorkerSelfProfileScreen(
             currentPhone = w.phone,
             currentRole = w.role,
             currentCategory = w.category,
+            currentBaseCharge = w.displayBaseCharge,
             onDismiss = { showEditDialog = false },
-            onSave = { name, phone, bio, role, category ->
-                viewModel.updateWorkerProfile(name, phone, bio, role, category)
+            onSave = { name, phone, bio, role, category, baseCharge ->
+                viewModel.updateWorkerProfile(name, phone, bio, role, category, baseCharge)
                 showEditDialog = false
             }
         )
@@ -347,15 +352,16 @@ private fun WorkerEditDialog(
     currentPhone: String,
     currentRole: String,
     currentCategory: ServiceCategory,
+    currentBaseCharge: Int,
     onDismiss: () -> Unit,
-    onSave: (String, String, String, String, ServiceCategory) -> Unit
+    onSave: (String, String, String, String, ServiceCategory, Int) -> Unit
 ) {
     var name by remember { mutableStateOf(currentName) }
     var bio by remember { mutableStateOf(currentBio) }
     var phone by remember { mutableStateOf(currentPhone) }
     var role by remember { mutableStateOf(currentRole) }
     var category by remember { mutableStateOf(currentCategory) }
-    var expanded by remember { mutableStateOf(false) }
+    var baseCharge by remember { mutableStateOf(if (currentBaseCharge > 0) currentBaseCharge.toString() else "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -364,22 +370,30 @@ private fun WorkerEditDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Full Name") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
                 OutlinedTextField(value = phone, onValueChange = { phone = it }, label = { Text("Phone") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Phone))
-                OutlinedTextField(value = role, onValueChange = { role = it }, label = { Text("Role (e.g. Electrician)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
-                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-                    OutlinedTextField(
-                        value = category.displayName,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Category") },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        shape = RoundedCornerShape(12.dp),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) }
-                    )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                OutlinedTextField(value = role, onValueChange = { role = it }, label = { Text("Role") }, placeholder = { Text("Electrician, Painter") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp))
+                OutlinedTextField(
+                    value = baseCharge,
+                    onValueChange = { baseCharge = it.filter { c -> c.isDigit() } },
+                    label = { Text("Base labour charge") },
+                    prefix = { Text("Rs. ") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Category", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         ServiceCategory.values().forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat.displayName) },
-                                onClick = { category = cat; expanded = false }
+                            FilterChip(
+                                selected = category == cat,
+                                onClick = { category = cat },
+                                label = { Text(cat.displayName) },
+                                leadingIcon = if (category == cat) {
+                                    { Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp)) }
+                                } else null
                             )
                         }
                     }
@@ -387,7 +401,7 @@ private fun WorkerEditDialog(
                 OutlinedTextField(value = bio, onValueChange = { bio = it }, label = { Text("About Me / Bio") }, modifier = Modifier.fillMaxWidth().height(100.dp), shape = RoundedCornerShape(12.dp), maxLines = 4)
             }
         },
-        confirmButton = { Button(onClick = { onSave(name, phone, bio, role, category) }, enabled = name.isNotBlank()) { Text("Save") } },
+        confirmButton = { Button(onClick = { onSave(name, phone, bio, role, category, baseCharge.toIntOrNull() ?: 0) }, enabled = name.isNotBlank() && (baseCharge.toIntOrNull() ?: 0) > 0) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

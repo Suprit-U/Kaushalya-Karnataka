@@ -37,6 +37,7 @@ object FirestoreCollections {
         const val RATING        = "rating"
         const val REVIEW_COUNT  = "reviewCount"
         const val IS_AVAILABLE  = "isAvailable"
+        const val BASE_LABOUR_CHARGE = "baseLabourCharge"
         const val PRICE_PER_HOUR = "pricePerHour"
         const val EXPERIENCE_YEARS = "experienceYears"
         const val SUCCESS_RATE  = "successRate"

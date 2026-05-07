@@ -7,6 +7,9 @@ import com.google.firebase.firestore.Query
 import com.kaushalyakarnataka.app.data.model.AppNotification
 import com.kaushalyakarnataka.app.data.model.NotificationType
 import com.kaushalyakarnataka.app.utils.UiState
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
@@ -15,6 +18,7 @@ private const val TAG = "NotificationRepository"
 
 interface NotificationRepository {
     suspend fun getNotifications(userId: String): UiState<List<AppNotification>>
+    fun observeNotifications(userId: String): Flow<UiState<List<AppNotification>>>
     suspend fun markAllRead(userId: String): UiState<Unit>
     suspend fun sendNotification(notification: AppNotification): UiState<Unit>
     suspend fun getUnreadCount(userId: String): Int
@@ -56,6 +60,29 @@ class NotificationRepositoryImpl @Inject constructor(
         }
     }
 
+    override fun observeNotifications(userId: String): Flow<UiState<List<AppNotification>>> = callbackFlow {
+        if (userId.isBlank()) {
+            trySend(UiState.Success(emptyList()))
+            close()
+            return@callbackFlow
+        }
+        val registration = notifRef
+            .whereEqualTo("userId", userId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(UiState.Error(error.message ?: "Failed to load notifications"))
+                    return@addSnapshotListener
+                }
+                val notifs = snapshot?.documents
+                    ?.mapNotNull { doc -> parseNotification(doc.data ?: return@mapNotNull null, doc.id) }
+                    ?.sortedByDescending { it.createdAt.seconds }
+                    ?.take(50)
+                    ?: emptyList()
+                trySend(UiState.Success(notifs))
+            }
+        awaitClose { registration.remove() }
+    }
+
     override suspend fun markAllRead(userId: String): UiState<Unit> {
         return try {
             val snapshot = notifRef.whereEqualTo("userId", userId).whereEqualTo("isRead", false).get().await()
@@ -95,5 +122,22 @@ class NotificationRepositoryImpl @Inject constructor(
             val snapshot = notifRef.whereEqualTo("userId", userId).whereEqualTo("isRead", false).get().await()
             snapshot.size()
         } catch (e: Exception) { 0 }
+    }
+
+    private fun parseNotification(data: Map<String, Any>, docId: String): AppNotification? {
+        return try {
+            AppNotification(
+                id = data["id"] as? String ?: docId,
+                userId = data["userId"] as? String ?: "",
+                title = data["title"] as? String ?: "",
+                message = data["message"] as? String ?: "",
+                type = try { NotificationType.valueOf(data["type"] as? String ?: "BOOKING_UPDATE") } catch (e: Exception) { NotificationType.BOOKING_UPDATE },
+                bookingId = data["bookingId"] as? String ?: "",
+                isRead = data["isRead"] as? Boolean ?: false,
+                createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now()
+            )
+        } catch (e: Exception) {
+            null
+        }
     }
 }

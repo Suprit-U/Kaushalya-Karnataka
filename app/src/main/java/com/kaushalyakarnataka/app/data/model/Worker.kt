@@ -13,6 +13,7 @@ data class Worker(
     val bio: String = "",
     val rating: Double = 0.0,
     val reviewCount: Int = 0,
+    val baseLabourCharge: Int = 0,
     val pricePerHour: Int = 0,
     val distanceKm: Double = 0.0,
     val isAvailable: Boolean = true,
@@ -24,7 +25,10 @@ data class Worker(
     val location: String = "",
     val experienceYears: Int = 0,
     val successRate: Int = 100,
-)
+) {
+    val displayBaseCharge: Int
+        get() = if (baseLabourCharge > 0) baseLabourCharge else pricePerHour
+}
 
 /**
  * Service categories shown in the home screen category grid.

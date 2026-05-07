@@ -28,6 +28,9 @@ class CustomerBookingsViewModel @Inject constructor(
     private val _reviewSubmitState = MutableStateFlow<UiState<Review>?>(null)
     val reviewSubmitState: StateFlow<UiState<Review>?> = _reviewSubmitState.asStateFlow()
 
+    private val _finalAmountState = MutableStateFlow<UiState<Unit>?>(null)
+    val finalAmountState: StateFlow<UiState<Unit>?> = _finalAmountState.asStateFlow()
+
     init { loadBookings() }
 
     fun loadBookings() {
@@ -66,9 +69,22 @@ class CustomerBookingsViewModel @Inject constructor(
     }
 
     fun respondToNegotiation(bookingId: String, accepted: Boolean, finalAmount: Int = 0) {
+        _finalAmountState.value = UiState.Loading
         viewModelScope.launch {
-            bookingRepository.respondToNegotiation(bookingId, accepted, finalAmount)
+            _finalAmountState.value = bookingRepository.respondToNegotiation(bookingId, accepted, finalAmount)
             loadBookings()
         }
+    }
+
+    fun requestFinalAmount(bookingId: String, amount: Int) {
+        _finalAmountState.value = UiState.Loading
+        viewModelScope.launch {
+            _finalAmountState.value = bookingRepository.requestFinalAmount(bookingId, amount)
+            loadBookings()
+        }
+    }
+
+    fun clearFinalAmountState() {
+        _finalAmountState.value = null
     }
 }

@@ -22,6 +22,7 @@ import com.kaushalyakarnataka.app.ui.theme.*
 import com.kaushalyakarnataka.app.utils.UiState
 import com.kaushalyakarnataka.app.viewmodel.AuthViewModel
 import com.kaushalyakarnataka.app.viewmodel.ProfileViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,15 +35,19 @@ fun CustomerProfileScreen(
 ) {
     val themeState = LocalThemeState.current
     val profileState by profileViewModel.profileState.collectAsState()
+    val updateState by profileViewModel.updateState.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
     var showAddressDialog by remember { mutableStateOf(false) }
     var showNotifDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     val imagePickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let { profileViewModel.uploadAvatar(it) }
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("My Profile", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
@@ -184,44 +189,16 @@ fun CustomerProfileScreen(
     }
 
     // Saved Addresses Dialog
-    if (showAddressDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddressDialog = false },
-            icon = { Icon(Icons.Default.LocationOn, null, tint = Primary) },
-            title = { Text("Saved Addresses") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Your saved addresses will appear here.", style = MaterialTheme.typography.bodyMedium)
-                    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(Icons.Default.Home, null, tint = Primary, modifier = Modifier.size(20.dp))
-                            Column {
-                                Text("Home", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                Text("Add your home address", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                    Surface(shape = RoundedCornerShape(10.dp), color = MaterialTheme.colorScheme.surfaceVariant) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(Icons.Default.Work, null, tint = Primary, modifier = Modifier.size(20.dp))
-                            Column {
-                                Text("Work", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                Text("Add your work address", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(onClick = { showAddressDialog = false }) { Text("Done") }
+    if (showAddressDialog && profileState is UiState.Success) {
+        val user = (profileState as UiState.Success).data
+        SavedAddressesSheet(
+            currentHomeAddress = user.homeAddress,
+            currentWorkAddress = user.workAddress,
+            isSaving = updateState is UiState.Loading,
+            onDismiss = { showAddressDialog = false },
+            onSave = { home, work ->
+                profileViewModel.updateSavedAddresses(home, work)
+                showAddressDialog = false
             }
         )
     }
@@ -229,6 +206,87 @@ fun CustomerProfileScreen(
     // Notifications Dialog
     if (showNotifDialog) {
         NotificationsDialog(onDismiss = { showNotifDialog = false })
+    }
+
+    LaunchedEffect(updateState) {
+        when (val state = updateState) {
+            is UiState.Success -> {
+                scope.launch { snackbarHostState.showSnackbar("Profile saved") }
+                profileViewModel.clearUpdateState()
+            }
+            is UiState.Error -> {
+                scope.launch { snackbarHostState.showSnackbar(state.message) }
+                profileViewModel.clearUpdateState()
+            }
+            else -> {}
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SavedAddressesSheet(
+    currentHomeAddress: String,
+    currentWorkAddress: String,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit
+) {
+    var homeAddress by remember(currentHomeAddress) { mutableStateOf(currentHomeAddress) }
+    var workAddress by remember(currentWorkAddress) { mutableStateOf(currentWorkAddress) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Icon(Icons.Default.LocationOn, null, tint = Primary)
+                Text("Saved Addresses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            }
+            OutlinedTextField(
+                value = homeAddress,
+                onValueChange = { homeAddress = it; error = null },
+                label = { Text("Home address") },
+                leadingIcon = { Icon(Icons.Default.Home, null) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                shape = RoundedCornerShape(14.dp)
+            )
+            OutlinedTextField(
+                value = workAddress,
+                onValueChange = { workAddress = it; error = null },
+                label = { Text("Work address") },
+                leadingIcon = { Icon(Icons.Default.Work, null) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                shape = RoundedCornerShape(14.dp),
+                supportingText = { error?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
+                isError = error != null
+            )
+            Button(
+                onClick = {
+                    if (homeAddress.isBlank() && workAddress.isBlank()) {
+                        error = "Add at least one saved address"
+                    } else {
+                        onSave(homeAddress, workAddress)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                enabled = !isSaving,
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Text("Save Addresses", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }
 

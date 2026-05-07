@@ -95,16 +95,16 @@ fun WorkerCard(
                         )
                     }
                     Spacer(modifier = Modifier.weight(1f))
-                    if (worker.pricePerHour > 0) {
+                    if (worker.displayBaseCharge > 0) {
                         Text(
-                            text = "${CurrencyUtils.formatRupees(worker.pricePerHour)}/hr",
+                            text = "~${CurrencyUtils.formatRupees(worker.displayBaseCharge)} starting",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
                     } else {
                         Text(
-                            text = "Contact for price",
+                            text = "Book Now",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary

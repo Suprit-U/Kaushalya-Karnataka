@@ -3,11 +3,15 @@ package com.kaushalyakarnataka.app.data.repository
 import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.kaushalyakarnataka.app.data.firebase.FirestoreCollections
+import com.kaushalyakarnataka.app.data.model.AppNotification
+import com.kaushalyakarnataka.app.data.model.NotificationType
 import com.kaushalyakarnataka.app.data.model.RatingStats
 import com.kaushalyakarnataka.app.data.model.Review
 import com.kaushalyakarnataka.app.utils.UiState
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
@@ -16,6 +20,7 @@ private const val TAG = "ReviewRepository"
 
 interface ReviewRepository {
     suspend fun getWorkerReviews(workerId: String): UiState<List<Review>>
+    fun observeWorkerReviews(workerId: String): Flow<UiState<List<Review>>>
     suspend fun getWorkerRatingStats(workerId: String): UiState<RatingStats>
     suspend fun addReview(review: Review): UiState<Review>
     suspend fun markHelpful(reviewId: String): UiState<Unit>
@@ -24,6 +29,7 @@ interface ReviewRepository {
 
 class ReviewRepositoryImpl @Inject constructor(
     private val firestore: FirebaseFirestore,
+    private val notificationRepository: NotificationRepository,
 ) : ReviewRepository {
 
     private val reviewsRef get() = firestore.collection(FirestoreCollections.REVIEWS)
@@ -32,39 +38,39 @@ class ReviewRepositoryImpl @Inject constructor(
         return try {
             val snapshot = reviewsRef
                 .whereEqualTo(FirestoreCollections.Fields.WORKER_ID, workerId)
-                .orderBy(FirestoreCollections.Fields.CREATED_AT, Query.Direction.DESCENDING)
                 .get()
                 .await()
             val reviews = snapshot.documents.mapNotNull { doc ->
-                try {
-                    val data = doc.data ?: return@mapNotNull null
-                    Review(
-                        id = data["id"] as? String ?: doc.id,
-                        workerId = data["workerId"] as? String ?: "",
-                        customerId = data["customerId"] as? String ?: "",
-                        customerName = data["customerName"] as? String ?: "",
-                        customerInitial = data["customerInitial"] as? String ?: "",
-                        customerAvatarUrl = data["customerAvatarUrl"] as? String ?: "",
-                        rating = (data["rating"] as? Long)?.toInt() ?: 5,
-                        comment = data["comment"] as? String ?: "",
-                        serviceType = data["serviceType"] as? String ?: "",
-                        photoUrls = (data["photoUrls"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
-                        helpfulCount = (data["helpfulCount"] as? Long)?.toInt() ?: 0,
-                        isVerified = data["isVerified"] as? Boolean ?: false,
-                        bookingId = data["bookingId"] as? String ?: "",
-                        createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
-                    )
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse review ${doc.id}", e)
-                    null
-                }
-            }
+                parseReviewData(doc.data ?: return@mapNotNull null, doc.id)
+            }.sortedByDescending { it.createdAt.seconds }
             UiState.Success(reviews)
         } catch (e: Exception) {
             Log.e(TAG, "getWorkerReviews failed", e)
             // Return empty list - no fake data
             UiState.Success(emptyList())
         }
+    }
+
+    override fun observeWorkerReviews(workerId: String): Flow<UiState<List<Review>>> = callbackFlow {
+        if (workerId.isBlank()) {
+            trySend(UiState.Success(emptyList()))
+            close()
+            return@callbackFlow
+        }
+        val registration = reviewsRef
+            .whereEqualTo(FirestoreCollections.Fields.WORKER_ID, workerId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(UiState.Error(error.message ?: "Failed to load reviews"))
+                    return@addSnapshotListener
+                }
+                val reviews = snapshot?.documents
+                    ?.mapNotNull { doc -> parseReviewData(doc.data ?: return@mapNotNull null, doc.id) }
+                    ?.sortedByDescending { it.createdAt.seconds }
+                    ?: emptyList()
+                trySend(UiState.Success(reviews))
+            }
+        awaitClose { registration.remove() }
     }
 
     override suspend fun getWorkerRatingStats(workerId: String): UiState<RatingStats> {
@@ -87,7 +93,14 @@ class ReviewRepositoryImpl @Inject constructor(
 
     override suspend fun addReview(review: Review): UiState<Review> {
         return try {
-            val reviewId = UUID.randomUUID().toString()
+            if (review.bookingId.isNotBlank() && hasUserReviewedBooking(review.bookingId, review.customerId)) {
+                return UiState.Error("You have already reviewed this booking")
+            }
+            val reviewId = when {
+                review.id.isNotBlank() -> review.id
+                review.bookingId.isNotBlank() -> "${review.bookingId}_${review.customerId}"
+                else -> UUID.randomUUID().toString()
+            }
             val newReview = review.copy(id = reviewId, createdAt = Timestamp.now())
             val reviewMap = mapOf(
                 "id" to newReview.id,
@@ -107,8 +120,16 @@ class ReviewRepositoryImpl @Inject constructor(
             )
             reviewsRef.document(reviewId).set(reviewMap).await()
 
-            // Update worker's rating in Firestore
             updateWorkerRating(newReview.workerId)
+            notificationRepository.sendNotification(
+                AppNotification(
+                    userId = newReview.workerId,
+                    title = "New review received",
+                    message = "${newReview.customerName} rated ${newReview.rating}/5 for ${newReview.serviceType}",
+                    type = NotificationType.NEW_REVIEW,
+                    bookingId = newReview.bookingId
+                )
+            )
 
             UiState.Success(newReview)
         } catch (e: Exception) {
@@ -119,8 +140,13 @@ class ReviewRepositoryImpl @Inject constructor(
 
     private suspend fun updateWorkerRating(workerId: String) {
         try {
-            val reviewsResult = getWorkerReviews(workerId)
-            val reviews = (reviewsResult as? UiState.Success)?.data ?: return
+            val snapshot = reviewsRef
+                .whereEqualTo(FirestoreCollections.Fields.WORKER_ID, workerId)
+                .get()
+                .await()
+            val reviews = snapshot.documents.mapNotNull { doc ->
+                parseReviewData(doc.data ?: return@mapNotNull null, doc.id)
+            }
             if (reviews.isEmpty()) return
             val avg = reviews.map { it.rating }.average()
             firestore.collection(FirestoreCollections.WORKERS).document(workerId)
@@ -153,6 +179,30 @@ class ReviewRepositoryImpl @Inject constructor(
             !snapshot.isEmpty
         } catch (e: Exception) {
             false
+        }
+    }
+
+    private fun parseReviewData(data: Map<String, Any>, docId: String): Review? {
+        return try {
+            Review(
+                id = data["id"] as? String ?: docId,
+                workerId = data["workerId"] as? String ?: "",
+                customerId = data["customerId"] as? String ?: "",
+                customerName = data["customerName"] as? String ?: "",
+                customerInitial = data["customerInitial"] as? String ?: "",
+                customerAvatarUrl = data["customerAvatarUrl"] as? String ?: "",
+                rating = ((data["rating"] as? Number)?.toInt() ?: 5).coerceIn(1, 5),
+                comment = data["comment"] as? String ?: "",
+                serviceType = data["serviceType"] as? String ?: "",
+                photoUrls = (data["photoUrls"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                helpfulCount = (data["helpfulCount"] as? Number)?.toInt() ?: 0,
+                isVerified = data["isVerified"] as? Boolean ?: false,
+                bookingId = data["bookingId"] as? String ?: "",
+                createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
+            )
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse review $docId", e)
+            null
         }
     }
 }

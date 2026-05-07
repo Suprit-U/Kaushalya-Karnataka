@@ -7,6 +7,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -67,7 +69,7 @@ fun AuthScreen(
                         .size(40.dp)
                         .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
                 ) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
                 Spacer(Modifier.height(16.dp))
                 Text(
@@ -219,7 +221,7 @@ fun AuthScreen(
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 } else {
                     Icon(
-                        if (isLogin) Icons.Default.Login else Icons.Default.PersonAdd,
+                        if (isLogin) Icons.AutoMirrored.Filled.Login else Icons.Default.PersonAdd,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )

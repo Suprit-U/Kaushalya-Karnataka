@@ -14,6 +14,8 @@ data class User(
     val email: String = "",
     val role: UserRole = UserRole.CUSTOMER,
     val location: String = "",
+    val homeAddress: String = "",
+    val workAddress: String = "",
     val avatarUrl: String = "",
     val isVerified: Boolean = false,
     val createdAt: Timestamp = Timestamp.now(),

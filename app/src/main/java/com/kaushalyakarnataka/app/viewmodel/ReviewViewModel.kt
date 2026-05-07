@@ -8,6 +8,7 @@ import com.kaushalyakarnataka.app.data.repository.AuthRepository
 import com.kaushalyakarnataka.app.data.repository.ReviewRepository
 import com.kaushalyakarnataka.app.utils.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,14 +30,18 @@ class ReviewViewModel @Inject constructor(
     private val _submitState = MutableStateFlow<UiState<Review>?>(null)
     val submitState: StateFlow<UiState<Review>?> = _submitState.asStateFlow()
 
+    private var reviewsJob: Job? = null
+
     init {
         loadReviews()
     }
 
     fun loadReviews() {
-        viewModelScope.launch {
-            _reviewsState.value = UiState.Loading
-            _reviewsState.value = reviewRepository.getWorkerReviews(workerId)
+        reviewsJob?.cancel()
+        reviewsJob = viewModelScope.launch {
+            reviewRepository.observeWorkerReviews(workerId).collect { state ->
+                _reviewsState.value = state
+            }
         }
     }
 
