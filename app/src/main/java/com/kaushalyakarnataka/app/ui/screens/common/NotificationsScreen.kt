@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -54,9 +55,11 @@ fun NotificationsScreen(
                 if (state.data.isEmpty()) {
                     Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.NotificationsNone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f), modifier = Modifier.size(72.dp))
+                            Icon(Icons.Default.NotificationsNone, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.3f), modifier = Modifier.size(72.dp))
                             Spacer(Modifier.height(12.dp))
-                            Text("No notifications yet", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("All caught up!", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.height(4.dp))
+                            Text("No new notifications right now.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f))
                         }
                     }
                 } else {
@@ -72,7 +75,19 @@ fun NotificationsScreen(
                 }
             }
             is UiState.Error -> Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                Text(state.message, color = MaterialTheme.colorScheme.error)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(56.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text("Unable to load notifications", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Text(state.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f))
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { viewModel.refresh() }) {
+                        Icon(Icons.Default.Refresh, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Retry")
+                    }
+                }
             }
         }
     }
@@ -81,7 +96,7 @@ fun NotificationsScreen(
 @Composable
 private fun NotificationCard(notif: AppNotification) {
     val (icon, iconBg) = when (notif.type) {
-        NotificationType.BOOKING_REQUEST -> Icons.Default.Assignment to PrimaryTint
+        NotificationType.BOOKING_REQUEST -> Icons.AutoMirrored.Filled.Assignment to PrimaryTint
         NotificationType.BOOKING_CONFIRMED -> Icons.Default.CheckCircle to SuccessTint
         NotificationType.BOOKING_DECLINED -> Icons.Default.Cancel to ErrorTint
         NotificationType.BOOKING_COMPLETED -> Icons.Default.EmojiEvents to SuccessTint

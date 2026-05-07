@@ -39,9 +39,7 @@ class SearchViewModel @Inject constructor(
             .debounce(400)
             .distinctUntilChanged()
             .onEach { query ->
-                if (query.isNotBlank() || _selectedCategory.value != null) {
-                    performSearch()
-                }
+                performSearch()
             }
             .launchIn(viewModelScope)
     }

@@ -21,7 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.filled.Pending
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.PhotoLibrary
@@ -81,6 +82,7 @@ import com.kaushalyakarnataka.app.data.model.Booking
 import com.kaushalyakarnataka.app.data.model.BookingStatus
 import com.kaushalyakarnataka.app.data.model.EarningsData
 import com.kaushalyakarnataka.app.data.model.NegotiationStatus
+import com.kaushalyakarnataka.app.data.model.Review
 import com.kaushalyakarnataka.app.data.model.Service
 import com.kaushalyakarnataka.app.data.model.Worker
 import com.kaushalyakarnataka.app.ui.components.AvatarComponent
@@ -122,6 +124,7 @@ fun WorkerDashboardScreen(
     val allBookings by viewModel.allBookings.collectAsState()
     val earningsData by viewModel.earningsData.collectAsState()
     val servicesState by viewModel.servicesState.collectAsState()
+    val recentReviews by viewModel.recentReviews.collectAsState()
     val unreadCount by notifViewModel.unreadCount.collectAsState()
     val notifications by notifViewModel.notifications.collectAsState()
     var currentWorkerTab by remember { mutableStateOf(WorkerNavDestination.DASHBOARD) }
@@ -153,11 +156,11 @@ fun WorkerDashboardScreen(
                 workerState = workerState,
                 pendingJobs = pendingJobs,
                 earningsData = earningsData,
+                recentReviews = recentReviews,
                 unreadCount = unreadCount,
                 onAccept = { id -> viewModel.acceptJob(id); scope.launch { snackbarHostState.showSnackbar("Booking accepted") } },
                 onDecline = { id -> viewModel.declineJob(id); scope.launch { snackbarHostState.showSnackbar("Booking declined") } },
-                onApproveAmount = { id -> viewModel.approveCustomerFinalAmount(id); scope.launch { snackbarHostState.showSnackbar("Final amount approved") } },
-                onSuggestAmount = { id, amount -> viewModel.proposeNegotiatedAmount(id, amount); scope.launch { snackbarHostState.showSnackbar("Revised amount sent") } },
+                onSendFinalAmount = { id, amount -> viewModel.workerSendFinalAmount(id, amount); scope.launch { snackbarHostState.showSnackbar("Final amount sent to customer") } },
                 onNotificationsClick = { showNotifications = true },
                 modifier = modifier.padding(paddingValues)
             )
@@ -174,8 +177,7 @@ fun WorkerDashboardScreen(
                 allBookings = allBookings,
                 onAccept = { id -> viewModel.acceptJob(id); scope.launch { snackbarHostState.showSnackbar("Booking accepted") } },
                 onDecline = { id -> viewModel.declineJob(id); scope.launch { snackbarHostState.showSnackbar("Booking declined") } },
-                onApproveAmount = { id -> viewModel.approveCustomerFinalAmount(id); scope.launch { snackbarHostState.showSnackbar("Final amount approved") } },
-                onSuggestAmount = { id, amount -> viewModel.proposeNegotiatedAmount(id, amount); scope.launch { snackbarHostState.showSnackbar("Revised amount sent") } },
+                onSendFinalAmount = { id, amount -> viewModel.workerSendFinalAmount(id, amount); scope.launch { snackbarHostState.showSnackbar("Final amount sent to customer") } },
                 modifier = modifier.padding(paddingValues)
             )
             WorkerNavDestination.PROFILE -> Box(Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
@@ -198,11 +200,11 @@ private fun DashboardTab(
     workerState: UiState<Worker>,
     pendingJobs: UiState<List<Booking>>,
     earningsData: UiState<EarningsData>,
+    recentReviews: UiState<List<Review>>,
     unreadCount: Int,
     onAccept: (String) -> Unit,
     onDecline: (String) -> Unit,
-    onApproveAmount: (String) -> Unit,
-    onSuggestAmount: (String, Int) -> Unit,
+    onSendFinalAmount: (String, Int) -> Unit,
     onNotificationsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -237,8 +239,7 @@ private fun DashboardTab(
                     booking = booking,
                     onAccept = { onAccept(booking.id) },
                     onDecline = { onDecline(booking.id) },
-                    onApproveAmount = { onApproveAmount(booking.id) },
-                    onSuggestAmount = { amount -> onSuggestAmount(booking.id, amount) },
+                    onSendFinalAmount = { amount -> onSendFinalAmount(booking.id, amount) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                 )
             }
@@ -253,6 +254,10 @@ private fun DashboardTab(
                     }
                 }
             }
+        }
+        // Recent Reviews Section
+        item {
+            RecentReviewsSection(recentReviews = recentReviews)
         }
     }
 }
@@ -303,7 +308,9 @@ private fun DashboardHeader(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             EarningChip(Icons.Default.CheckCircle, "${e.completedJobs} Done")
                             EarningChip(Icons.Default.Pending, "${e.pendingJobs} Pending")
-                            EarningChip(Icons.Default.Star, if (e.averageRating > 0) String.format("%.1f", e.averageRating) else "New")
+                            if (e.averageRating > 0) {
+                                EarningChip(Icons.Default.Star, String.format("%.1f", e.averageRating))
+                            }
                         }
                     }
                 }
@@ -326,10 +333,14 @@ private fun StatsStrip(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            StatCard(Icons.Default.Assignment, "Requests", (pendingJobs as? UiState.Success)?.data?.count { it.status == BookingStatus.PENDING }?.toString() ?: "-", Error, Modifier.weight(1f))
+            StatCard(Icons.AutoMirrored.Filled.Assignment, "Requests", (pendingJobs as? UiState.Success)?.data?.count { it.status == BookingStatus.PENDING }?.toString() ?: "-", Error, Modifier.weight(1f))
             StatCard(Icons.Default.EmojiEvents, "Jobs", (earningsData as? UiState.Success)?.data?.completedJobs?.toString() ?: "-", Success, Modifier.weight(1f))
             val rating = (earningsData as? UiState.Success)?.data?.averageRating ?: 0.0
-            StatCard(Icons.Default.Star, "Rating", if (rating > 0) String.format("%.1f", rating) else "New", Warning, Modifier.weight(1f))
+            if (rating > 0) {
+                StatCard(Icons.Default.Star, "Rating", String.format("%.1f", rating), Warning, Modifier.weight(1f))
+            } else {
+                StatCard(Icons.Default.Star, "Rating", "—", Warning.copy(alpha = 0.5f), Modifier.weight(1f))
+            }
         }
     }
 }
@@ -361,17 +372,16 @@ fun EnhancedJobCard(
     booking: Booking,
     onAccept: (() -> Unit)? = null,
     onDecline: (() -> Unit)? = null,
-    onApproveAmount: (() -> Unit)? = null,
-    onSuggestAmount: ((Int) -> Unit)? = null,
+    onSendFinalAmount: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val (statusColor, statusBg) = when (booking.status) {
-        BookingStatus.PENDING -> Warning to WarningTint
-        BookingStatus.CONFIRMED -> Primary to PrimaryTint
-        BookingStatus.IN_PROGRESS -> Success to SuccessTint
-        BookingStatus.COMPLETED -> Success to SuccessTint
-        BookingStatus.CANCELLED -> Error to ErrorTint
-        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Secondary to SecondaryTint
+    val (statusColor, statusBg, statusLabel) = when (booking.status) {
+        BookingStatus.PENDING -> Triple(Warning, WarningTint, "New Request")
+        BookingStatus.CONFIRMED -> Triple(Primary, PrimaryTint, "Confirmed")
+        BookingStatus.IN_PROGRESS -> Triple(Success, SuccessTint, "In Progress")
+        BookingStatus.COMPLETED -> Triple(Success, SuccessTint, "Completed")
+        BookingStatus.CANCELLED -> Triple(Error, ErrorTint, "Declined")
+        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Triple(Secondary, SecondaryTint, "Awaiting Customer")
     }
 
     Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
@@ -384,7 +394,7 @@ fun EnhancedJobCard(
                     Text(booking.service, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Surface(shape = RoundedCornerShape(8.dp), color = statusBg) {
-                    Text(booking.status.name.replace('_', ' '), modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = statusColor, fontWeight = FontWeight.Bold)
+                    Text(statusLabel, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = statusColor, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -412,32 +422,29 @@ fun EnhancedJobCard(
                         }
                     }
                 }
-                booking.status == BookingStatus.CONFIRMED -> {
+                booking.status == BookingStatus.CONFIRMED && onSendFinalAmount != null -> {
                     Spacer(Modifier.height(12.dp))
-                    StatusMessage(
-                        icon = Icons.Default.HourglassTop,
-                        text = "Waiting for customer to submit the final payable amount.",
-                        color = Primary,
-                        background = PrimaryTint
+                    WorkerSendFinalAmountCard(
+                        booking = booking,
+                        onSendFinalAmount = onSendFinalAmount
                     )
                 }
                 booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION &&
-                    booking.negotiationStatus == NegotiationStatus.CUSTOMER_PROPOSED &&
-                    onApproveAmount != null &&
-                    onSuggestAmount != null -> {
-                    Spacer(Modifier.height(12.dp))
-                    WorkerFinalAmountActions(
-                        requestedAmount = booking.customerProposedAmount,
-                        fallbackAmount = booking.estimatedCostMax,
-                        onApprove = onApproveAmount,
-                        onSuggestAmount = onSuggestAmount
-                    )
-                }
-                booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> {
+                    (booking.negotiationStatus == NegotiationStatus.WORKER_PROPOSED || booking.negotiationStatus == NegotiationStatus.WORKER_COUNTERED) -> {
                     Spacer(Modifier.height(12.dp))
                     StatusMessage(
                         icon = Icons.Default.HourglassTop,
-                        text = "Awaiting customer confirmation for ${CurrencyUtils.formatRupees(booking.counterAmount())}",
+                        text = "Awaiting customer approval for ${CurrencyUtils.formatRupees(booking.counterAmount())}",
+                        color = SecondaryDark,
+                        background = SecondaryTint
+                    )
+                }
+                booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION &&
+                    booking.negotiationStatus == NegotiationStatus.CUSTOMER_PROPOSED -> {
+                    Spacer(Modifier.height(12.dp))
+                    StatusMessage(
+                        icon = Icons.Default.HourglassTop,
+                        text = "Customer proposed ${CurrencyUtils.formatRupees(booking.customerProposedAmount)}. Awaiting your action.",
                         color = SecondaryDark,
                         background = SecondaryTint
                     )
@@ -458,56 +465,118 @@ fun EnhancedJobCard(
 }
 
 @Composable
-private fun WorkerFinalAmountActions(
-    requestedAmount: Int,
-    fallbackAmount: Int,
-    onApprove: () -> Unit,
-    onSuggestAmount: (Int) -> Unit
+private fun WorkerSendFinalAmountCard(
+    booking: Booking,
+    onSendFinalAmount: (Int) -> Unit
 ) {
-    var showSuggestDialog by remember { mutableStateOf(false) }
-    if (showSuggestDialog) {
-        var amountText by remember { mutableStateOf((requestedAmount.takeIf { it > 0 } ?: fallbackAmount).coerceAtLeast(0).toString()) }
+    var showDialog by remember { mutableStateOf(false) }
+    if (showDialog) {
+        var amountText by remember { mutableStateOf(booking.estimatedCostMax.takeIf { it > 0 }?.toString() ?: "") }
         AlertDialog(
-            onDismissRequest = { showSuggestDialog = false },
-            title = { Text("Suggest Revised Amount") },
+            onDismissRequest = { showDialog = false },
+            title = { Text("Send Final Amount") },
             text = {
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { amountText = it.filter { c -> c.isDigit() } },
-                    label = { Text("Revised amount") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    prefix = { Text("Rs. ") }
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Service: ${booking.service}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Initial estimate: ${booking.initialAmountText()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = amountText,
+                        onValueChange = { amountText = it.filter { c -> c.isDigit() } },
+                        label = { Text("Final amount") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        prefix = { Text("Rs. ") }
+                    )
+                }
             },
             confirmButton = {
                 Button(onClick = {
                     val amount = amountText.toIntOrNull() ?: 0
                     if (amount > 0) {
-                        onSuggestAmount(amount)
-                        showSuggestDialog = false
+                        onSendFinalAmount(amount)
+                        showDialog = false
                     }
-                }) { Text("Send") }
+                }) { Text("Send to Customer") }
             },
-            dismissButton = { TextButton(onClick = { showSuggestDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } }
         )
     }
 
-    Surface(shape = RoundedCornerShape(10.dp), color = SecondaryTint, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(
-                "Customer requested ${CurrencyUtils.formatRupees(requestedAmount)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = SecondaryDark,
-                fontWeight = FontWeight.SemiBold
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = { showSuggestDialog = true }, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = SecondaryDark)) {
-                    Text("Revise", fontWeight = FontWeight.Bold)
+    Button(
+        onClick = { showDialog = true },
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.buttonColors(containerColor = Primary)
+    ) {
+        Icon(Icons.Default.Payments, null, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Send Final Amount", fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun RecentReviewsSection(
+    recentReviews: UiState<List<Review>>
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Text("Recent Reviews", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(10.dp))
+        when (recentReviews) {
+            is UiState.Loading -> Box(Modifier.fillMaxWidth().height(60.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Primary, modifier = Modifier.size(24.dp))
+            }
+            is UiState.Error -> Text(recentReviews.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            is UiState.Success -> {
+                val reviews = recentReviews.data.take(3)
+                if (reviews.isEmpty()) {
+                    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Default.Star, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(20.dp))
+                            Text("No reviews yet. Complete jobs to get rated.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        reviews.forEach { review ->
+                            CompactReviewCard(review = review)
+                        }
+                    }
                 }
-                Button(onClick = onApprove, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Success)) {
-                    Text("Approve", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactReviewCard(review: Review) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 1.dp
+    ) {
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AvatarComponent(imageUrl = review.customerAvatarUrl, name = review.customerName, size = 36.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(review.customerName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.width(8.dp))
+                    Surface(shape = RoundedCornerShape(6.dp), color = WarningTint) {
+                        Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Icon(Icons.Default.Star, null, tint = Warning, modifier = Modifier.size(10.dp))
+                            Text("${review.rating}", style = MaterialTheme.typography.labelSmall, color = Warning, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
+                Spacer(Modifier.height(2.dp))
+                Text(review.comment, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
             }
         }
     }
@@ -625,8 +694,7 @@ private fun BookingsTab(
     allBookings: UiState<List<Booking>>,
     onAccept: (String) -> Unit,
     onDecline: (String) -> Unit,
-    onApproveAmount: (String) -> Unit,
-    onSuggestAmount: (String, Int) -> Unit,
+    onSendFinalAmount: (String, Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var selectedTab by remember { mutableStateOf(0) }
@@ -663,8 +731,7 @@ private fun BookingsTab(
                         booking = booking,
                         onAccept = if (booking.status == BookingStatus.PENDING) ({ onAccept(booking.id) }) else null,
                         onDecline = if (booking.status == BookingStatus.PENDING) ({ onDecline(booking.id) }) else null,
-                        onApproveAmount = if (booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION) ({ onApproveAmount(booking.id) }) else null,
-                        onSuggestAmount = if (booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION) ({ amount -> onSuggestAmount(booking.id, amount) }) else null
+                        onSendFinalAmount = if (booking.status == BookingStatus.CONFIRMED) ({ amount -> onSendFinalAmount(booking.id, amount) }) else null
                     )
                 }
             }
@@ -684,7 +751,11 @@ private fun DashboardNotificationsDialog(
         text = {
             when (notificationsState) {
                 is UiState.Loading -> Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Primary) }
-                is UiState.Error -> Text(notificationsState.message, color = MaterialTheme.colorScheme.error)
+                is UiState.Error -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                    Icon(Icons.Outlined.NotificationsOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f), modifier = Modifier.size(40.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Could not load notifications", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 is UiState.Success -> {
                     if (notificationsState.data.isEmpty()) {
                         Text("No notifications yet", color = MaterialTheme.colorScheme.onSurfaceVariant)

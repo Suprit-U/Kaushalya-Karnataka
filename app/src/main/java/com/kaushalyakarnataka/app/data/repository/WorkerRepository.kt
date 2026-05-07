@@ -88,11 +88,11 @@ class WorkerRepositoryImpl @Inject constructor(
             val snapshot = if (category != null) {
                 workersRef
                     .whereEqualTo(FirestoreCollections.Fields.CATEGORY, category.name)
-                    .orderBy(FirestoreCollections.Fields.RATING, Query.Direction.DESCENDING)
                     .get().await()
             } else {
                 workersRef
                     .orderBy(FirestoreCollections.Fields.RATING, Query.Direction.DESCENDING)
+                    .limit(100)
                     .get().await()
             }
 
@@ -104,10 +104,11 @@ class WorkerRepositoryImpl @Inject constructor(
                     worker.category.displayName.contains(query, ignoreCase = true) ||
                     worker.tags.any { it.contains(query, ignoreCase = true) }
                 }
+                .sortedByDescending { it.rating }
             UiState.Success(workers)
         } catch (e: Exception) {
             Log.e(TAG, "searchWorkers failed", e)
-            UiState.Success(emptyList())
+            UiState.Error(e.message ?: "Search failed. Please try again.")
         }
     }
 
@@ -116,9 +117,12 @@ class WorkerRepositoryImpl @Inject constructor(
             val snapshot = workersRef
                 .whereEqualTo(FirestoreCollections.Fields.CATEGORY, category.name)
                 .get().await()
-            UiState.Success(snapshot.documents.mapNotNull { parseWorker(it) })
+            val workers = snapshot.documents.mapNotNull { parseWorker(it) }
+                .sortedByDescending { it.rating }
+            UiState.Success(workers)
         } catch (e: Exception) {
-            UiState.Success(emptyList())
+            Log.e(TAG, "getWorkersByCategory failed for ${category.name}", e)
+            UiState.Error(e.message ?: "Failed to load workers for ${category.displayName}")
         }
     }
 

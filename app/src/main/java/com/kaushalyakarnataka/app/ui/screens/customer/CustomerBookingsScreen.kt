@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -95,7 +96,6 @@ fun CustomerBookingsScreen(
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("All", "Upcoming", "Completed", "Cancelled")
     var reviewBooking by remember { mutableStateOf<Booking?>(null) }
-    var finalAmountBooking by remember { mutableStateOf<Booking?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -157,7 +157,6 @@ fun CustomerBookingsScreen(
                                 CustomerBookingCard(
                                     booking = booking,
                                     onViewWorker = { onNavigateToWorkerProfile(booking.workerId) },
-                                    onRequestFinalAmount = { finalAmountBooking = booking },
                                     onAcceptProposal = {
                                         val amount = if (booking.workerCounterAmount > 0) {
                                             booking.workerCounterAmount
@@ -177,15 +176,6 @@ fun CustomerBookingsScreen(
                 }
             }
         }
-    }
-
-    finalAmountBooking?.let { booking ->
-        FinalAmountDialog(
-            booking = booking,
-            isLoading = finalAmountState is UiState.Loading,
-            onDismiss = { finalAmountBooking = null },
-            onSubmit = { amount -> viewModel.requestFinalAmount(booking.id, amount) }
-        )
     }
 
     reviewBooking?.let { booking ->
@@ -224,9 +214,8 @@ fun CustomerBookingsScreen(
     LaunchedEffect(finalAmountState) {
         when (val state = finalAmountState) {
             is UiState.Success -> {
-                scope.launch { snackbarHostState.showSnackbar("Final amount sent for worker approval") }
+                scope.launch { snackbarHostState.showSnackbar("Payment confirmed. Booking completed.") }
                 viewModel.clearFinalAmountState()
-                finalAmountBooking = null
             }
             is UiState.Error -> {
                 scope.launch { snackbarHostState.showSnackbar(state.message) }
@@ -257,18 +246,17 @@ private fun EmptyBookingsState() {
 fun CustomerBookingCard(
     booking: Booking,
     onViewWorker: () -> Unit,
-    onRequestFinalAmount: () -> Unit = {},
     onAcceptProposal: (() -> Unit)? = null,
     onRejectProposal: (() -> Unit)? = null,
     onLeaveReview: () -> Unit = {}
 ) {
-    val (statusColor, statusBg) = when (booking.status) {
-        BookingStatus.PENDING -> Warning to WarningTint
-        BookingStatus.CONFIRMED -> Success to SuccessTint
-        BookingStatus.IN_PROGRESS -> Primary to PrimaryTint
-        BookingStatus.COMPLETED -> Success to SuccessTint
-        BookingStatus.CANCELLED -> Error to ErrorTint
-        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Secondary to SecondaryTint
+    val (statusColor, statusBg, statusLabel) = when (booking.status) {
+        BookingStatus.PENDING -> Triple(Warning, WarningTint, "Awaiting worker quotation")
+        BookingStatus.CONFIRMED -> Triple(Success, SuccessTint, "Booking accepted")
+        BookingStatus.IN_PROGRESS -> Triple(Primary, PrimaryTint, "Work in progress")
+        BookingStatus.COMPLETED -> Triple(Success, SuccessTint, "Completed successfully")
+        BookingStatus.CANCELLED -> Triple(Error, ErrorTint, "Declined")
+        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Triple(Secondary, SecondaryTint, "Final amount sent")
     }
 
     Surface(
@@ -287,7 +275,7 @@ fun CustomerBookingCard(
                 }
                 Surface(shape = RoundedCornerShape(8.dp), color = statusBg) {
                     Text(
-                        booking.status.cleanLabel(),
+                        statusLabel,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = statusColor,
@@ -326,14 +314,59 @@ fun CustomerBookingCard(
 
             if (booking.status == BookingStatus.CONFIRMED) {
                 Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = onRequestFinalAmount,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
-                ) {
-                    Icon(Icons.Default.Payments, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Send Final Amount", fontWeight = FontWeight.Bold)
+                Surface(shape = RoundedCornerShape(8.dp), color = PrimaryTint, modifier = Modifier.fillMaxWidth()) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.HourglassTop, null, tint = Primary, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Waiting for worker to send the final amount",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
+
+            if (
+                booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION &&
+                (booking.negotiationStatus == NegotiationStatus.WORKER_PROPOSED || booking.negotiationStatus == NegotiationStatus.WORKER_COUNTERED) &&
+                onAcceptProposal != null &&
+                onRejectProposal != null
+            ) {
+                Spacer(Modifier.height(10.dp))
+                Surface(shape = RoundedCornerShape(8.dp), color = SecondaryTint, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Payments, null, tint = SecondaryDark, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "Final amount: ${CurrencyUtils.formatRupees(booking.counterAmount())}",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = SecondaryDark
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(
+                                onClick = onRejectProposal,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)
+                            ) {
+                                Icon(Icons.AutoMirrored.Filled.HelpOutline, null, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Ask Clarification", fontWeight = FontWeight.Bold)
+                            }
+                            Button(
+                                onClick = onAcceptProposal,
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(containerColor = Success)
+                            ) {
+                                Text("Accept & Confirm", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -347,47 +380,11 @@ fun CustomerBookingCard(
                         Icon(Icons.Default.HourglassTop, null, tint = Primary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Waiting for worker approval for ${CurrencyUtils.formatRupees(booking.customerProposedAmount)}",
+                            "Waiting for worker approval",
                             style = MaterialTheme.typography.bodySmall,
                             color = Primary,
                             fontWeight = FontWeight.SemiBold
                         )
-                    }
-                }
-            }
-
-            if (
-                booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION &&
-                booking.isWorkerCountered() &&
-                onAcceptProposal != null &&
-                onRejectProposal != null
-            ) {
-                Spacer(Modifier.height(10.dp))
-                Surface(shape = RoundedCornerShape(8.dp), color = SecondaryTint, modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            "Worker suggested: ${CurrencyUtils.formatRupees(booking.counterAmount())}",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = SecondaryDark
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            OutlinedButton(
-                                onClick = onRejectProposal,
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)
-                            ) {
-                                Text("Reject", fontWeight = FontWeight.Bold)
-                            }
-                            Button(
-                                onClick = onAcceptProposal,
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Success)
-                            ) {
-                                Text("Accept & Pay", fontWeight = FontWeight.Bold)
-                            }
-                        }
                     }
                 }
             }
@@ -420,71 +417,6 @@ fun CustomerBookingCard(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun FinalAmountDialog(
-    booking: Booking,
-    isLoading: Boolean,
-    onDismiss: () -> Unit,
-    onSubmit: (Int) -> Unit
-) {
-    var amountText by remember(booking.id) {
-        mutableStateOf(
-            when {
-                booking.finalAmount > 0 -> booking.finalAmount.toString()
-                booking.estimatedCostMax > 0 -> booking.estimatedCostMax.toString()
-                booking.estimatedCostMin > 0 -> booking.estimatedCostMin.toString()
-                else -> ""
-            }
-        )
-    }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Final Payable Amount") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    "Initial estimate: ${booking.initialAmountText()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = amountText,
-                    onValueChange = { amountText = it.filter { c -> c.isDigit() }; error = null },
-                    label = { Text("Agreed final amount") },
-                    prefix = { Text("Rs. ") },
-                    modifier = Modifier.fillMaxWidth(),
-                    isError = error != null,
-                    supportingText = { error?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
-                    shape = RoundedCornerShape(12.dp)
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    val amount = amountText.toIntOrNull() ?: 0
-                    if (amount <= 0) {
-                        error = "Enter a valid amount"
-                    } else {
-                        onSubmit(amount)
-                    }
-                },
-                enabled = !isLoading
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text("Send")
-                }
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -589,9 +521,6 @@ private fun Booking.isWorkerCountered(): Boolean {
         counterAmount() > 0
 }
 
-private fun BookingStatus.cleanLabel(): String {
-    return name.replace('_', ' ')
-}
 
 private fun String.shortAddress(): String {
     return if (length > 25) "${take(25)}..." else this

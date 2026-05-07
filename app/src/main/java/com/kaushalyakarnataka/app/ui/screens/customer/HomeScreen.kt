@@ -22,8 +22,10 @@ import com.kaushalyakarnataka.app.data.model.*
 import com.kaushalyakarnataka.app.ui.components.*
 import com.kaushalyakarnataka.app.ui.theme.*
 import com.kaushalyakarnataka.app.utils.CurrencyUtils
+import com.kaushalyakarnataka.app.utils.DateUtils
 import com.kaushalyakarnataka.app.utils.UiState
 import com.kaushalyakarnataka.app.viewmodel.HomeViewModel
+import com.kaushalyakarnataka.app.viewmodel.NotificationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,11 +35,15 @@ fun HomeScreen(
     onNavigateToWorkerProfile: (String) -> Unit,
     onNavigateBottomBar: (NavDestination) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = hiltViewModel()
+    viewModel: HomeViewModel = hiltViewModel(),
+    notifViewModel: NotificationViewModel = hiltViewModel()
 ) {
     val topWorkersState by viewModel.topWorkersState.collectAsState()
     val themeState = LocalThemeState.current
     val scrollState = rememberLazyListState()
+    val unreadCount by notifViewModel.unreadCount.collectAsState()
+    val notifications by notifViewModel.notifications.collectAsState()
+    var showNotifications by remember { mutableStateOf(false) }
 
     Scaffold(
         bottomBar = {
@@ -58,7 +64,9 @@ fun HomeScreen(
                 HomeHeroHeader(
                     onSearchClick = { onNavigateToSearch(null) },
                     onThemeToggle = { themeState.toggle() },
-                    isDark = themeState.isDark
+                    isDark = themeState.isDark,
+                    unreadCount = unreadCount,
+                    onNotificationsClick = { showNotifications = true }
                 )
             }
 
@@ -131,12 +139,70 @@ fun HomeScreen(
             }
         }
     }
+
+    if (showNotifications) {
+        HomeNotificationsDialog(
+            notificationsState = notifications,
+            onDismiss = { showNotifications = false },
+            onMarkAllRead = { notifViewModel.markAllRead() }
+        )
+    }
+}
+
+@Composable
+private fun HomeNotificationsDialog(
+    notificationsState: UiState<List<com.kaushalyakarnataka.app.data.model.AppNotification>>,
+    onDismiss: () -> Unit,
+    onMarkAllRead: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Notifications") },
+        text = {
+            when (notificationsState) {
+                is UiState.Loading -> Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Primary) }
+                is UiState.Error -> Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                    Icon(Icons.Outlined.NotificationsOff, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f), modifier = Modifier.size(40.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Could not load notifications", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                is UiState.Success -> {
+                    if (notificationsState.data.isEmpty()) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                            Icon(Icons.Outlined.Notifications, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f), modifier = Modifier.size(48.dp))
+                            Spacer(Modifier.height(8.dp))
+                            Text("No notifications yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            notificationsState.data.take(5).forEach { notification ->
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Box(Modifier.size(32.dp).clip(CircleShape).background(if (notification.isRead) MaterialTheme.colorScheme.surfaceVariant else PrimaryTint), contentAlignment = Alignment.Center) {
+                                        Icon(if (notification.isRead) Icons.Default.Info else Icons.Default.Notifications, null, tint = Primary, modifier = Modifier.size(16.dp))
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(notification.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                                        Text(notification.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                                        Text(DateUtils.getRelativeTimeSpan(notification.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.7f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { onMarkAllRead(); onDismiss() }) { Text("Mark Read") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Close") } }
+    )
 }
 
 @Composable
 private fun HomeHeroHeader(
     onSearchClick: () -> Unit,
     onThemeToggle: () -> Unit,
+    onNotificationsClick: () -> Unit,
+    unreadCount: Int,
     isDark: Boolean
 ) {
     Box(
@@ -188,12 +254,13 @@ private fun HomeHeroHeader(
                         )
                     }
                     // Notification
-                    IconButton(
-                        onClick = {},
+                    Box(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.15f))
+                            .clickable(onClick = onNotificationsClick),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
@@ -201,6 +268,22 @@ private fun HomeHeroHeader(
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
+                        if (unreadCount > 0) {
+                            Surface(
+                                modifier = Modifier.align(Alignment.TopEnd).size(16.dp),
+                                shape = CircleShape,
+                                color = Error
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        if (unreadCount > 9) "9+" else unreadCount.toString(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        fontSize = 8.sp
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -321,16 +404,22 @@ private fun PromoMiniCard(banner: PromoCardData) {
 
 @Composable
 private fun HomeCategoryGrid(onCategoryClick: (ServiceCategory) -> Unit) {
-    val cats = listOf(
-        CategoryItem(ServiceCategory.ELECTRICIAN, Icons.Filled.ElectricalServices, Color(0xFF1E3A8A), Color(0xFFDBEAFE)),
-        CategoryItem(ServiceCategory.PLUMBER, Icons.Filled.Plumbing, Color(0xFF065F46), Color(0xFFD1FAE5)),
-        CategoryItem(ServiceCategory.CARPENTER, Icons.Filled.Carpenter, Color(0xFF92400E), Color(0xFFFEF3C7)),
-        CategoryItem(ServiceCategory.PAINTER, Icons.Filled.FormatPaint, Color(0xFF9D174D), Color(0xFFFCE7F3)),
-        CategoryItem(ServiceCategory.CLEANER, Icons.Filled.CleaningServices, Color(0xFF5B21B6), Color(0xFFEDE9FE)),
-        CategoryItem(ServiceCategory.AC_TECH, Icons.Filled.AcUnit, Color(0xFF1E40AF), Color(0xFFDBEAFE)),
-        CategoryItem(ServiceCategory.GARDENER, Icons.Filled.Grass, Color(0xFF065F46), Color(0xFFD1FAE5)),
-        CategoryItem(ServiceCategory.OTHER, Icons.Filled.MoreHoriz, Color(0xFF1E3A8A), Color(0xFFEFF6FF)),
-    )
+    val cats = ServiceCategory.entries
+        .filter { it != ServiceCategory.OTHER }
+        .map { category ->
+            val (icon, iconColor, bgColor) = when (category) {
+                ServiceCategory.ELECTRICIAN -> Triple(Icons.Filled.ElectricalServices, Color(0xFF1E3A8A), Color(0xFFDBEAFE))
+                ServiceCategory.PLUMBER -> Triple(Icons.Filled.Plumbing, Color(0xFF065F46), Color(0xFFD1FAE5))
+                ServiceCategory.CARPENTER -> Triple(Icons.Filled.Carpenter, Color(0xFF92400E), Color(0xFFFEF3C7))
+                ServiceCategory.PAINTER -> Triple(Icons.Filled.FormatPaint, Color(0xFF9D174D), Color(0xFFFCE7F3))
+                ServiceCategory.CLEANER -> Triple(Icons.Filled.CleaningServices, Color(0xFF5B21B6), Color(0xFFEDE9FE))
+                ServiceCategory.AC_TECH -> Triple(Icons.Filled.AcUnit, Color(0xFF1E40AF), Color(0xFFDBEAFE))
+                ServiceCategory.GARDENER -> Triple(Icons.Filled.Grass, Color(0xFF065F46), Color(0xFFD1FAE5))
+                ServiceCategory.MECHANIC -> Triple(Icons.Filled.Handyman, Color(0xFF7C2D12), Color(0xFFFFEDD5))
+                else -> Triple(Icons.Filled.MoreHoriz, Color(0xFF1E3A8A), Color(0xFFEFF6FF))
+            }
+            CategoryItem(category, icon, iconColor, bgColor)
+        }
 
     val rows = cats.chunked(4)
     Column(modifier = Modifier.padding(horizontal = 12.dp)) {

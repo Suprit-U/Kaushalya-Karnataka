@@ -29,6 +29,7 @@ interface BookingRepository {
     suspend fun proposeNegotiatedAmount(bookingId: String, amount: Int): UiState<Unit>
     suspend fun respondToNegotiation(bookingId: String, accepted: Boolean, finalAmount: Int): UiState<Unit>
     suspend fun completeBookingWithFinalAmount(bookingId: String, finalAmount: Int): UiState<Unit>
+    suspend fun workerSendFinalAmount(bookingId: String, amount: Int): UiState<Unit>
 }
 
 class BookingRepositoryImpl @Inject constructor(
@@ -186,6 +187,36 @@ class BookingRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun workerSendFinalAmount(bookingId: String, amount: Int): UiState<Unit> {
+        if (amount <= 0) return UiState.Error("Enter a valid final amount")
+        return try {
+            bookingsRef.document(bookingId).update(
+                mapOf(
+                    "negotiatedAmount" to amount,
+                    "negotiationStatus" to NegotiationStatus.WORKER_PROPOSED.name,
+                    "status" to BookingStatus.AWAITING_PAYMENT_CONFIRMATION.name
+                )
+            ).await()
+
+            val bookingResult = getBookingById(bookingId)
+            if (bookingResult is UiState.Success) {
+                val booking = bookingResult.data
+                notificationRepository.sendNotification(
+                    AppNotification(
+                        userId = booking.customerId,
+                        title = "Final amount sent",
+                        message = "${booking.workerName} sent a final amount of ${formatAmount(amount)} for ${booking.service}",
+                        type = NotificationType.BOOKING_UPDATE,
+                        bookingId = bookingId
+                    )
+                )
+            }
+            UiState.Success(Unit)
+        } catch (e: Exception) {
+            UiState.Error(e.message ?: "Failed to send final amount")
+        }
+    }
+
     override suspend fun approveCustomerFinalAmount(bookingId: String): UiState<Unit> {
         return try {
             val booking = (getBookingById(bookingId) as? UiState.Success)?.data
@@ -281,19 +312,36 @@ class BookingRepositoryImpl @Inject constructor(
                 ).await()
             }
 
-            notificationRepository.sendNotification(
-                AppNotification(
-                    userId = booking.workerId,
-                    title = if (accepted) "Revised amount accepted" else "Revised amount rejected",
-                    message = if (accepted) {
-                        "Customer accepted final payment of ${formatAmount(finalAmount.takeIf { it > 0 } ?: booking.workerCounterAmount)}"
-                    } else {
-                        "Customer rejected the revised amount. Please discuss or wait for a new request."
-                    },
-                    type = if (accepted) NotificationType.BOOKING_COMPLETED else NotificationType.BOOKING_UPDATE,
-                    bookingId = bookingId
+            if (accepted) {
+                notificationRepository.sendNotification(
+                    AppNotification(
+                        userId = booking.workerId,
+                        title = "Final amount accepted",
+                        message = "Customer accepted final payment of ${formatAmount(finalAmount.takeIf { it > 0 } ?: booking.workerCounterAmount.takeIf { it > 0 } ?: booking.negotiatedAmount)}",
+                        type = NotificationType.BOOKING_COMPLETED,
+                        bookingId = bookingId
+                    )
                 )
-            )
+                notificationRepository.sendNotification(
+                    AppNotification(
+                        userId = booking.customerId,
+                        title = "Booking completed",
+                        message = "Your booking for ${booking.service} is complete. Rate your experience with ${booking.workerName}.",
+                        type = NotificationType.BOOKING_COMPLETED,
+                        bookingId = bookingId
+                    )
+                )
+            } else {
+                notificationRepository.sendNotification(
+                    AppNotification(
+                        userId = booking.workerId,
+                        title = "Final amount rejected",
+                        message = "Customer requested clarification on the final amount. Please discuss or send a new amount.",
+                        type = NotificationType.BOOKING_UPDATE,
+                        bookingId = bookingId
+                    )
+                )
+            }
             UiState.Success(Unit)
         } catch (e: Exception) {
             UiState.Error(e.message ?: "Failed to respond to negotiation")

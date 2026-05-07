@@ -76,14 +76,6 @@ class CustomerBookingsViewModel @Inject constructor(
         }
     }
 
-    fun requestFinalAmount(bookingId: String, amount: Int) {
-        _finalAmountState.value = UiState.Loading
-        viewModelScope.launch {
-            _finalAmountState.value = bookingRepository.requestFinalAmount(bookingId, amount)
-            loadBookings()
-        }
-    }
-
     fun clearFinalAmountState() {
         _finalAmountState.value = null
     }

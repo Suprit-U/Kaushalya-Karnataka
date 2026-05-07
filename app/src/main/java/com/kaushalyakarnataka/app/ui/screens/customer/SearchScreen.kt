@@ -84,7 +84,7 @@ fun SearchScreen(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 CategoryChipRow(
-                    categories = ServiceCategory.values().toList(),
+                    categories = ServiceCategory.entries.filter { it != ServiceCategory.OTHER },
                     selectedCategory = selectedCategory,
                     onCategorySelected = { viewModel.selectCategory(it) }
                 )
@@ -107,18 +107,17 @@ fun SearchScreen(
                     )
                 }
                 is UiState.Success -> {
-                    if (state.data.isEmpty() && hasInitialized && query.isNotBlank()) {
-                        // Only show empty state if user has searched and no results
+                    if (state.data.isEmpty() && hasInitialized) {
+                        val cat = selectedCategory
                         EmptyState(
                             icon = Icons.Default.SearchOff,
                             title = "No Kaushals Found",
-                            message = "Try adjusting your search query or category filter."
+                            message = if (cat != null) {
+                                "No workers found in ${cat.displayName}. Try another category."
+                            } else {
+                                "Try adjusting your search query or category filter."
+                            }
                         )
-                    } else if (state.data.isEmpty() && query.isBlank()) {
-                        // Still loading initial data
-                        LazyColumn {
-                            items(5) { WorkerCardSkeleton() }
-                        }
                     } else {
                         LazyColumn(
                             contentPadding = PaddingValues(bottom = 24.dp)

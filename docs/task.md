@@ -63,7 +63,8 @@ Last updated: 2026-05-06
 - [x] `data/repository/ReviewRepository.kt`
 - [x] `data/repository/ServiceRepository.kt`
 - [x] `data/repository/StorageRepository.kt`
-- [x] `data/repository/NotificationRepository.kt`
+- [x] `data/repository/NotificationRepository.kt` — Restructured ALL queries to use single-field equality only (`whereEqualTo(userId)`). Client-side sorting and filtering eliminate composite-index requirements. Friendly error mapping. Comprehensive logging for all operations.
+- [x] `firestore.indexes.json` — Composite indexes for notifications, workers, reviews, bookings.
 - [x] Sample fallback data compiles against current models.
 
 ## Phase 7: Utils
@@ -84,7 +85,8 @@ Last updated: 2026-05-06
 - [x] `viewmodel/WorkerDashboardViewModel.kt`
 - [x] `viewmodel/ServiceViewModel.kt`
 - [x] `viewmodel/PortfolioViewModel.kt`
-- [x] `viewmodel/NotificationViewModel.kt`
+- [x] `viewmodel/NotificationViewModel.kt` — Removed race condition in `load()`, now uses single real-time observer.
+- [x] `viewmodel/WorkerProfileViewModel.kt` — Added `updateBio()` for single-field bio updates.
 
 ## Phase 9: UI Components
 
@@ -118,14 +120,14 @@ Last updated: 2026-05-06
 - [x] `ui/screens/auth/WelcomeScreen.kt`
 - [x] `ui/screens/auth/RoleSelectionScreen.kt`
 - [x] `ui/screens/auth/AuthScreen.kt`
-- [x] `ui/screens/customer/HomeScreen.kt`
-- [x] `ui/screens/customer/SearchScreen.kt`
-- [x] `ui/screens/customer/WorkerProfileScreen.kt`
+- [x] `ui/screens/customer/HomeScreen.kt` — Category grid now derives from `ServiceCategory.entries` dynamically.
+- [x] `ui/screens/customer/SearchScreen.kt` — Category filtering fixed; no longer requires Firestore composite index.
+- [x] `ui/screens/customer/WorkerProfileScreen.kt` — Added `PortfolioGalleryDialog` with zoom, swipe, and captions.
 - [x] `ui/screens/customer/HireRequestScreen.kt`
 - [x] `ui/screens/customer/CustomerBookingsScreen.kt`
 - [x] `ui/screens/customer/CustomerProfileScreen.kt`
 - [x] `ui/screens/worker/WorkerDashboardScreen.kt`
-- [x] `ui/screens/worker/WorkerSelfProfileScreen.kt`
+- [x] `ui/screens/worker/WorkerSelfProfileScreen.kt` — Added `BioEditDialog` with character counter, validation, Snackbar feedback, and dedicated "Edit Bio" action.
 - [x] `ui/screens/worker/AddServiceScreen.kt`
 - [x] `ui/screens/worker/PortfolioScreen.kt`
 - [x] `ui/screens/common/NotificationsScreen.kt`
@@ -165,5 +167,12 @@ Last updated: 2026-05-06
 - [ ] BuildConfig/env-based Supabase credentials.
 - [x] Dedicated customer bookings screen.
 - [x] Dedicated customer profile screen.
+- [x] Portfolio gallery viewer with zoom/swipe.
+- [x] Search + category filtering without composite index dependency.
+- [x] Notification system with real-time badge and list.
+- [x] Firestore composite indexes defined and documented.
+- [x] Friendly error handling in notification repository and UI (no raw Firebase errors shown to users).
+- [x] Worker bio editing with dedicated dialog, character limit, and Snackbar feedback.
 - [ ] Automated unit and UI tests.
 - [ ] Full localization pass.
+- [ ] Geo-location based worker filtering.

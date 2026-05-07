@@ -103,6 +103,18 @@ class WorkerProfileViewModel @Inject constructor(
         }
     }
 
+    fun updateBio(bio: String) {
+        if (workerId.isBlank()) return
+        _updateState.value = UiState.Loading
+        viewModelScope.launch {
+            val result = workerRepository.updateWorkerProfile(workerId, mapOf("bio" to bio.trim()))
+            _updateState.value = result
+            if (result is UiState.Success) {
+                loadWorkerProfile()
+            }
+        }
+    }
+
     fun clearUpdateState() {
         _updateState.value = null
     }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -164,7 +165,7 @@ fun CustomerProfileScreen(
                         .padding(horizontal = 16.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Logout, null, tint = Error, modifier = Modifier.size(22.dp))
+                    Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Error, modifier = Modifier.size(22.dp))
                     Spacer(Modifier.width(12.dp))
                     Text("Log Out", style = MaterialTheme.typography.bodyMedium, color = Error, fontWeight = FontWeight.SemiBold)
                 }

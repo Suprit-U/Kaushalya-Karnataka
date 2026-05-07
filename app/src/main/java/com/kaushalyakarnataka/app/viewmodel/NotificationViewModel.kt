@@ -32,6 +32,7 @@ class NotificationViewModel @Inject constructor(
 
     fun load() {
         val uid = authRepository.currentUser?.uid ?: return
+        _notifications.value = UiState.Loading
         notificationJob?.cancel()
         notificationJob = viewModelScope.launch {
             notificationRepository.observeNotifications(uid).collect { state ->
@@ -39,9 +40,14 @@ class NotificationViewModel @Inject constructor(
                 _unreadCount.value = (state as? UiState.Success)?.data?.count { !it.isRead } ?: 0
             }
         }
+    }
+
+    fun refresh() {
+        val uid = authRepository.currentUser?.uid ?: return
         viewModelScope.launch {
-            _notifications.value = notificationRepository.getNotifications(uid)
-            _unreadCount.value = notificationRepository.getUnreadCount(uid)
+            val state = notificationRepository.getNotifications(uid)
+            _notifications.value = state
+            _unreadCount.value = (state as? UiState.Success)?.data?.count { !it.isRead } ?: 0
         }
     }
 
@@ -49,8 +55,6 @@ class NotificationViewModel @Inject constructor(
         val uid = authRepository.currentUser?.uid ?: return
         viewModelScope.launch {
             notificationRepository.markAllRead(uid)
-            _unreadCount.value = 0
-            load()
         }
     }
 }

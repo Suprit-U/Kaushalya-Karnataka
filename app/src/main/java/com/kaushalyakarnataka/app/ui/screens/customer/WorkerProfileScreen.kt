@@ -3,17 +3,26 @@ package com.kaushalyakarnataka.app.ui.screens.customer
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +55,9 @@ fun WorkerProfileScreen(
     val servicesState by viewModel.servicesState.collectAsState()
     val reviewsState by viewModel.reviewsState.collectAsState()
     val portfolioState by viewModel.portfolioState.collectAsState()
+    var showGallery by remember { mutableStateOf(false) }
+    var selectedGalleryIndex by remember { mutableIntStateOf(0) }
+    val portfolioItems = (portfolioState as? UiState.Success)?.data ?: emptyList()
 
     Scaffold(
         bottomBar = {
@@ -155,7 +167,13 @@ fun WorkerProfileScreen(
                         is UiState.Success -> if (pv.data.isNotEmpty()) {
                             item {
                                 ProfileSection(title = "Portfolio") {
-                                    PortfolioMiniGrid(items = pv.data.take(6))
+                                    PortfolioMiniGrid(
+                                        items = pv.data.take(6),
+                                        onImageClick = { index ->
+                                            selectedGalleryIndex = index
+                                            showGallery = true
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -229,6 +247,14 @@ fun WorkerProfileScreen(
             }
         }
     }
+
+    if (showGallery && portfolioItems.isNotEmpty()) {
+        PortfolioGalleryDialog(
+            items = portfolioItems,
+            initialIndex = selectedGalleryIndex,
+            onDismiss = { showGallery = false }
+        )
+    }
 }
 
 @Composable
@@ -242,7 +268,7 @@ private fun WorkerHeroSection(worker: Worker, onBack: () -> Unit) {
             modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
                 .clip(CircleShape).background(Color.White.copy(alpha = 0.15f))
         ) {
-            Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
         }
 
         Column(
@@ -338,7 +364,7 @@ private fun WorkerActionRow(
                 Icon(Icons.Default.Call, contentDescription = "Call Worker", tint = Primary)
             }
             OutlinedIconButton(onClick = onWhatsApp, modifier = Modifier.size(46.dp), shape = CircleShape) {
-                Icon(Icons.Default.Chat, contentDescription = "WhatsApp", tint = Color(0xFF25D366))
+                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "WhatsApp", tint = Color(0xFF25D366))
             }
         }
         if (email.isNotBlank()) {
@@ -417,15 +443,31 @@ private fun ServicePricingRow(service: Service) {
 }
 
 @Composable
-private fun PortfolioMiniGrid(items: List<PortfolioItem>) {
+private fun PortfolioMiniGrid(
+    items: List<PortfolioItem>,
+    onImageClick: (Int) -> Unit
+) {
     val rows = items.chunked(3)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        rows.forEach { row ->
+        rows.forEachIndexed { rowIndex, row ->
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                row.forEach { item ->
-                    Box(modifier = Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant)) {
+                row.forEachIndexed { colIndex, item ->
+                    val index = rowIndex * 3 + colIndex
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .clickable { onImageClick(index) }
+                    ) {
                         if (item.photoUrl.isNotEmpty()) {
-                            AsyncImage(model = item.photoUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            AsyncImage(
+                                model = item.photoUrl,
+                                contentDescription = item.caption,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
                         } else {
                             Icon(Icons.Default.Image, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f), modifier = Modifier.align(Alignment.Center).size(28.dp))
                         }
@@ -491,6 +533,121 @@ private fun WorkerProfileBottomBar(startingPrice: Int, onBook: () -> Unit) {
                 Icon(Icons.Default.CalendarMonth, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Book Now", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PortfolioGalleryDialog(
+    items: List<PortfolioItem>,
+    initialIndex: Int,
+    onDismiss: () -> Unit
+) {
+    val pagerState = rememberPagerState(initialPage = initialIndex, pageCount = { items.size })
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.92f))
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { onDismiss() })
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.4f))
+            ) {
+                Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(24.dp))
+            }
+
+            Text(
+                "${pagerState.currentPage + 1} / ${items.size}",
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 20.dp),
+                color = Color.White.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.labelLarge
+            )
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1
+            ) { page ->
+                var scale by remember { mutableFloatStateOf(1f) }
+                var offsetX by remember { mutableFloatStateOf(0f) }
+                var offsetY by remember { mutableFloatStateOf(0f) }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { _, pan, zoom, _ ->
+                                scale = (scale * zoom).coerceIn(1f, 5f)
+                                if (scale > 1f) {
+                                    offsetX += pan.x
+                                    offsetY += pan.y
+                                } else {
+                                    offsetX = 0f
+                                    offsetY = 0f
+                                }
+                            }
+                        }
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    scale = if (scale > 1f) 1f else 3f
+                                    if (scale == 1f) {
+                                        offsetX = 0f
+                                        offsetY = 0f
+                                    }
+                                }
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = items[page].photoUrl,
+                        contentDescription = items[page].caption,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = offsetX
+                                translationY = offsetY
+                            }
+                    )
+                }
+            }
+
+            if (items[pagerState.currentPage].caption.isNotBlank()) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(horizontal = 16.dp, vertical = 24.dp)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.Black.copy(alpha = 0.5f)
+                ) {
+                    Text(
+                        items[pagerState.currentPage].caption,
+                        modifier = Modifier.padding(12.dp),
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
     }

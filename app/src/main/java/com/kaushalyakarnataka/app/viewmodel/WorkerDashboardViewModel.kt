@@ -10,6 +10,7 @@ import com.kaushalyakarnataka.app.data.model.Service
 import com.kaushalyakarnataka.app.data.model.Worker
 import com.kaushalyakarnataka.app.data.repository.AuthRepository
 import com.kaushalyakarnataka.app.data.repository.BookingRepository
+import com.kaushalyakarnataka.app.data.repository.ReviewRepository
 import com.kaushalyakarnataka.app.data.repository.ServiceRepository
 import com.kaushalyakarnataka.app.data.repository.WorkerRepository
 import com.kaushalyakarnataka.app.utils.UiState
@@ -25,7 +26,8 @@ class WorkerDashboardViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val workerRepository: WorkerRepository,
     private val bookingRepository: BookingRepository,
-    private val serviceRepository: ServiceRepository
+    private val serviceRepository: ServiceRepository,
+    private val reviewRepository: ReviewRepository
 ) : ViewModel() {
 
     private val _workerState = MutableStateFlow<UiState<Worker>>(UiState.Loading)
@@ -46,6 +48,9 @@ class WorkerDashboardViewModel @Inject constructor(
     private val _allBookings = MutableStateFlow<UiState<List<Booking>>>(UiState.Loading)
     val allBookings: StateFlow<UiState<List<Booking>>> = _allBookings.asStateFlow()
 
+    private val _recentReviews = MutableStateFlow<UiState<List<com.kaushalyakarnataka.app.data.model.Review>>>(UiState.Loading)
+    val recentReviews: StateFlow<UiState<List<com.kaushalyakarnataka.app.data.model.Review>>> = _recentReviews.asStateFlow()
+
     private val _negotiationProposalState = MutableStateFlow<UiState<Unit>?>(null)
     val negotiationProposalState: StateFlow<UiState<Unit>?> = _negotiationProposalState.asStateFlow()
 
@@ -57,6 +62,7 @@ class WorkerDashboardViewModel @Inject constructor(
             _workerState.value = workerRepository.getWorkerById(uid)
             _pendingJobs.value = bookingRepository.getWorkerPendingBookings(uid)
             _servicesState.value = serviceRepository.getWorkerServices(uid)
+            _recentReviews.value = reviewRepository.getWorkerReviews(uid)
 
             val allBookingsResult = bookingRepository.getWorkerBookings(uid)
             _allBookings.value = allBookingsResult
@@ -121,6 +127,14 @@ class WorkerDashboardViewModel @Inject constructor(
         _negotiationProposalState.value = UiState.Loading
         viewModelScope.launch {
             _negotiationProposalState.value = bookingRepository.counterFinalAmount(bookingId, amount)
+            loadDashboardData()
+        }
+    }
+
+    fun workerSendFinalAmount(bookingId: String, amount: Int) {
+        _negotiationProposalState.value = UiState.Loading
+        viewModelScope.launch {
+            _negotiationProposalState.value = bookingRepository.workerSendFinalAmount(bookingId, amount)
             loadDashboardData()
         }
     }

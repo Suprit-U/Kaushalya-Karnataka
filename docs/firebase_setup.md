@@ -204,6 +204,33 @@ Valid service durations:
 - `TWO_TO_THREE_HOURS`
 - `FULL_DAY`
 
+### `notifications`
+
+Document ID:
+
+```text
+{notificationId}
+```
+
+Common fields:
+
+- `id` (String)
+- `userId` (String) — recipient UID
+- `title` (String)
+- `message` (String)
+- `type` (String) — `BOOKING_REQUEST`, `BOOKING_CONFIRMED`, `BOOKING_DECLINED`, `BOOKING_COMPLETED`, `NEW_REVIEW`, `BOOKING_UPDATE`
+- `bookingId` (String)
+- `isRead` (Boolean)
+- `createdAt` (Timestamp)
+
+**Required composite index:**
+```
+Collection: notifications
+Fields:
+  - userId (Ascending)
+  - createdAt (Descending)
+```
+
 ### `workers/{workerId}/portfolio`
 
 Worker portfolio items are loaded from this subcollection.
@@ -254,9 +281,48 @@ Firebase Storage is not used by the current app. Image storage uses Supabase Sto
 docs/supabase/setup_guide.md
 ```
 
-## 8. Troubleshooting
+## 8. Required Firestore Composite Indexes
+
+The app includes `firestore.indexes.json` for **production performance optimization**, but the notification system has been restructured to work **without requiring deployed composite indexes**.
+
+### How Notification Queries Work (No Index Required)
+
+All notification queries now use only **single-field equality filters** on `userId`, which Firestore indexes automatically. Client-side sorting and filtering replace compound queries:
+
+| Query | Old (needed composite index) | New (single-field only) |
+|-------|------------------------------|-------------------------|
+| List notifications | `whereEqualTo(userId) + orderBy(createdAt DESC)` | `whereEqualTo(userId)` → sort client-side |
+| Mark all read | `whereEqualTo(userId) + whereEqualTo(isRead)` | `whereEqualTo(userId)` → filter client-side |
+| Unread count | `whereEqualTo(userId) + whereEqualTo(isRead)` | `whereEqualTo(userId)` → count client-side |
+
+This means the app works **immediately** after Firebase project setup, without waiting for index builds.
+
+### Recommended Production Indexes
+
+For better performance at scale, deploy these optional indexes:
+
+```text
+firestore.indexes.json
+```
+
+| Collection   | Fields                                    | Purpose                          |
+|--------------|-------------------------------------------|----------------------------------|
+| notifications| userId (ASC) → createdAt (DESC)           | Optimized notification list      |
+| workers      | category (ASC) → rating (DESC)           | Search with category + sort      |
+| reviews      | workerId (ASC) → createdAt (DESC)         | Worker review stream             |
+| bookings     | workerId (ASC) → createdAt (DESC)        | Worker booking history           |
+| bookings     | customerId (ASC) → createdAt (DESC)      | Customer booking history         |
+
+Deploy indexes:
+
+```powershell
+firebase deploy --only firestore:indexes
+```
+
+## 9. Troubleshooting
 
 - App fails on startup: verify `app/google-services.json` is present and matches `com.kaushalyakarnataka.app`.
 - Login/sign-up fails: verify Authentication is enabled and the provider is configured.
 - Firestore reads/writes fail: verify Firestore exists and rules allow the current authenticated user.
+- **No notifications appearing**: Check Logcat for `NotificationRepository` tags. Ensure the notifications collection exists and documents have a `userId` field matching the current user's UID.
 - Empty UI data: repositories may show sample fallback data when Firestore fails; check Logcat and Firebase Console.

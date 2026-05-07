@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -37,9 +38,27 @@ fun WorkerSelfProfileScreen(
     val profileState by viewModel.workerState.collectAsState()
     val themeState = LocalThemeState.current
     var showEditDialog by remember { mutableStateOf(false) }
+    var showBioDialog by remember { mutableStateOf(false) }
     var showNotifDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val updateState by viewModel.updateState.collectAsState()
+    LaunchedEffect(updateState) {
+        when (updateState) {
+            is UiState.Success -> {
+                snackbarHostState.showSnackbar("Profile updated successfully")
+                viewModel.clearUpdateState()
+            }
+            is UiState.Error -> {
+                snackbarHostState.showSnackbar((updateState as UiState.Error).message)
+                viewModel.clearUpdateState()
+            }
+            else -> {}
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("My Profile", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
@@ -124,11 +143,13 @@ fun WorkerSelfProfileScreen(
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
                                             Icon(Icons.Default.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
-                                            Text(
-                                                if (worker.rating > 0) String.format("%.1f", worker.rating) else "New",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White
-                                            )
+                                            if (worker.rating > 0) {
+                                                Text(
+                                                    String.format("%.1f", worker.rating),
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = Color.White
+                                                )
+                                            }
                                         }
                                     }
                                     if (worker.isAvailable) {
@@ -191,7 +212,13 @@ fun WorkerSelfProfileScreen(
 
                     // About
                     item {
-                        SectionBlock(title = "About Me") {
+                        SectionBlock(title = "About Me", action = {
+                            TextButton(onClick = { showBioDialog = true }) {
+                                Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text("Edit")
+                            }
+                        }) {
                             if (worker.bio.isNotBlank()) {
                                 Text(worker.bio, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             } else {
@@ -250,7 +277,7 @@ fun WorkerSelfProfileScreen(
                                 }.padding(horizontal = 16.dp, vertical = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(Icons.Default.Logout, null, tint = Error, modifier = Modifier.size(22.dp))
+                                Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Error, modifier = Modifier.size(22.dp))
                                 Spacer(Modifier.width(12.dp))
                                 Text("Log Out", style = MaterialTheme.typography.bodyMedium, color = Error, fontWeight = FontWeight.SemiBold)
                             }
@@ -281,21 +308,75 @@ fun WorkerSelfProfileScreen(
         )
     }
 
-    val updateState by viewModel.updateState.collectAsState()
-    LaunchedEffect(updateState) {
-        if (updateState is UiState.Success) {
-            viewModel.clearUpdateState()
-        }
+    if (showBioDialog && profileState is UiState.Success) {
+        val w = (profileState as UiState.Success).data
+        BioEditDialog(
+            currentBio = w.bio,
+            onDismiss = { showBioDialog = false },
+            onSave = { bio ->
+                viewModel.updateBio(bio)
+                showBioDialog = false
+            }
+        )
     }
 }
 
 @Composable
-private fun SectionBlock(title: String, content: @Composable () -> Unit) {
+private fun SectionBlock(title: String, action: @Composable (() -> Unit)? = null, content: @Composable () -> Unit) {
     Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            action?.invoke()
+        }
         Spacer(Modifier.height(10.dp))
         content()
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun BioEditDialog(
+    currentBio: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var bio by remember { mutableStateOf(currentBio) }
+    val maxChars = 500
+    val isValid = bio.length <= maxChars
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Default.Person, null, tint = Primary) },
+        title = { Text("Edit Bio") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = bio,
+                    onValueChange = { if (it.length <= maxChars) bio = it },
+                    label = { Text("About Me") },
+                    placeholder = { Text("Tell customers about your experience and skills...") },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 200.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    maxLines = 6,
+                    isError = !isValid,
+                    supportingText = {
+                        Text(
+                            "${bio.length} / $maxChars",
+                            color = if (bio.length > maxChars * 0.9) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(bio.trim()) },
+                enabled = isValid
+            ) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
 }
 
 @Composable

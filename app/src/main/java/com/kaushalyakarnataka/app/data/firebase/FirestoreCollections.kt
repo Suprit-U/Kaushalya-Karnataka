@@ -19,6 +19,7 @@ object FirestoreCollections {
     const val BOOKINGS  = "bookings"
     const val REVIEWS   = "reviews"
     const val SERVICES  = "services"
+    const val NOTIFICATIONS = "notifications"
 
     // --- Common field names ---
     object Fields {
@@ -62,6 +63,12 @@ object FirestoreCollections {
         const val PRICING_TYPE  = "pricingType"
         const val DESCRIPTION   = "description"
         const val IS_ACTIVE     = "isActive"
+
+        // Notification fields
+        const val USER_ID     = "userId"
+        const val IS_READ     = "isRead"
+        const val TITLE       = "title"
+        const val MESSAGE     = "message"
     }
 }
 

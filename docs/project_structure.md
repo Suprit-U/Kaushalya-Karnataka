@@ -79,6 +79,8 @@ Reusable components:
 - `SkeletonLoader.kt`
 - `TimeSlotPicker.kt`
 - `WorkerCard.kt`
+- `SearchBarField.kt`
+- `CategoryChipRow.kt`
 
 #### `ui/screens/`
 
