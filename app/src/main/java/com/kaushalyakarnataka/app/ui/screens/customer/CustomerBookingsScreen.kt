@@ -17,6 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import kotlinx.coroutines.launch
+import androidx.compose.material.icons.outlined.Star
 import com.kaushalyakarnataka.app.data.model.Booking
 import com.kaushalyakarnataka.app.data.model.BookingStatus
 import com.kaushalyakarnataka.app.ui.components.AvatarComponent
@@ -116,13 +118,43 @@ fun CustomerBookingsScreen(
                                     onRejectProposal = {
                                         viewModel.respondToNegotiation(booking.id, accepted = false)
                                         scope.launch { snackbarHostState.showSnackbar("Price proposal rejected") }
-                                    }
+                                    },
+                                    onLeaveReview = { reviewBooking = booking }
                                 )
                             }
                         }
                     }
                 }
             }
+        }
+    }
+
+    reviewBooking?.let { booking ->
+        LeaveReviewDialog(
+            workerName = booking.workerName,
+            serviceType = booking.service,
+            onDismiss = { reviewBooking = null },
+            onSubmit = { rating, comment ->
+                viewModel.submitReview(
+                    workerId = booking.workerId,
+                    rating = rating,
+                    comment = comment,
+                    serviceType = booking.service,
+                    bookingId = booking.id
+                )
+            },
+            isLoading = reviewSubmitState is UiState.Loading
+        )
+    }
+
+    LaunchedEffect(reviewSubmitState) {
+        if (reviewSubmitState is UiState.Success) {
+            scope.launch { snackbarHostState.showSnackbar("Review submitted successfully") }
+            viewModel.clearReviewSubmitState()
+            reviewBooking = null
+        } else if (reviewSubmitState is UiState.Error) {
+            scope.launch { snackbarHostState.showSnackbar((reviewSubmitState as UiState.Error).message) }
+            viewModel.clearReviewSubmitState()
         }
     }
 }
@@ -132,7 +164,8 @@ fun CustomerBookingCard(
     booking: Booking,
     onViewWorker: () -> Unit,
     onAcceptProposal: (() -> Unit)? = null,
-    onRejectProposal: (() -> Unit)? = null
+    onRejectProposal: (() -> Unit)? = null,
+    onLeaveReview: () -> Unit = {}
 ) {
     val (statusColor, statusBg) = when (booking.status) {
         BookingStatus.PENDING -> Warning to WarningTint
@@ -227,41 +260,12 @@ fun CustomerBookingCard(
 
             if (booking.status == BookingStatus.COMPLETED) {
                 Spacer(Modifier.height(10.dp))
-                OutlinedButton(onClick = { reviewBooking = booking }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onLeaveReview, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Default.RateReview, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
                     Text("Leave a Review")
                 }
             }
-        }
-    }
-
-    reviewBooking?.let { booking ->
-        LeaveReviewDialog(
-            workerName = booking.workerName,
-            serviceType = booking.service,
-            onDismiss = { reviewBooking = null },
-            onSubmit = { rating, comment ->
-                viewModel.submitReview(
-                    workerId = booking.workerId,
-                    rating = rating,
-                    comment = comment,
-                    serviceType = booking.service,
-                    bookingId = booking.id
-                )
-            },
-            isLoading = reviewSubmitState is UiState.Loading
-        )
-    }
-
-    LaunchedEffect(reviewSubmitState) {
-        if (reviewSubmitState is UiState.Success) {
-            scope.launch { snackbarHostState.showSnackbar("Review submitted successfully") }
-            viewModel.clearReviewSubmitState()
-            reviewBooking = null
-        } else if (reviewSubmitState is UiState.Error) {
-            scope.launch { snackbarHostState.showSnackbar((reviewSubmitState as UiState.Error).message) }
-            viewModel.clearReviewSubmitState()
         }
     }
 }
