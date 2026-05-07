@@ -25,7 +25,7 @@ object NavRoutes {
     const val WORKER_DASHBOARD = "worker_dashboard"
     const val ADD_SERVICE = "add_service"
     const val PORTFOLIO = "portfolio"
-    const val WORKER_PROFILE_SELF = "worker_profile_self"
+    const val WORKER_PROFILE_TAB = "worker_profile_tab"
     const val EDIT_PROFILE = "edit_profile"
 
     // Argument Keys

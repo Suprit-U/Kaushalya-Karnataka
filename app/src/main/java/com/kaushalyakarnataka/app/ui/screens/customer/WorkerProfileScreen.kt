@@ -2,6 +2,7 @@ package com.kaushalyakarnataka.app.ui.screens.customer
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
@@ -25,7 +26,7 @@ import com.kaushalyakarnataka.app.utils.DateUtils
 import com.kaushalyakarnataka.app.utils.UiState
 import com.kaushalyakarnataka.app.viewmodel.WorkerProfileViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun WorkerProfileScreen(
     workerId: String,
