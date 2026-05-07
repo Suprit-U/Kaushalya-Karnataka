@@ -122,6 +122,7 @@ fun CustomerBookingCard(booking: Booking, onViewWorker: () -> Unit) {
         BookingStatus.IN_PROGRESS -> Primary to PrimaryTint
         BookingStatus.COMPLETED -> Success to SuccessTint
         BookingStatus.CANCELLED -> Error to ErrorTint
+        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Secondary to SecondaryTint
     }
 
     Surface(

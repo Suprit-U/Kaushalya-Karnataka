@@ -28,6 +28,7 @@ fun StatusBadge(
         BookingStatus.IN_PROGRESS -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.secondary
         BookingStatus.COMPLETED -> Success.copy(alpha = 0.2f) to Success
         BookingStatus.CANCELLED -> Error.copy(alpha = 0.2f) to Error
+        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.tertiary
     }
 
     Box(

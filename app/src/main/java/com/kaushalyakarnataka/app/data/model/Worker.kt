@@ -22,6 +22,8 @@ data class Worker(
     val portfolioUrls: List<String> = emptyList(),
     val avatarUrl: String = "",
     val location: String = "",
+    val experienceYears: Int = 0,
+    val successRate: Int = 100,
 )
 
 /**

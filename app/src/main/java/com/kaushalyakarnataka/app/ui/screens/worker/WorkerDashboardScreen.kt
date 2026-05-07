@@ -313,6 +313,7 @@ fun EnhancedJobCard(
         BookingStatus.IN_PROGRESS -> Success to SuccessTint
         BookingStatus.COMPLETED -> Success to SuccessTint
         BookingStatus.CANCELLED -> Error to ErrorTint
+        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Secondary to SecondaryTint
     }
 
     Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
