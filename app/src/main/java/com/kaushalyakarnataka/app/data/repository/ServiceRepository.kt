@@ -1,5 +1,6 @@
 package com.kaushalyakarnataka.app.data.repository
 
+import android.util.Log
 import com.google.firebase.firestore.FirebaseFirestore
 import com.kaushalyakarnataka.app.data.firebase.FirestoreCollections
 import com.kaushalyakarnataka.app.data.model.PortfolioItem
@@ -12,6 +13,8 @@ import com.kaushalyakarnataka.app.utils.UiState
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
+
+private const val TAG = "ServiceRepository"
 
 interface ServiceRepository {
     suspend fun addService(service: Service): UiState<Service>
@@ -32,16 +35,43 @@ class ServiceRepositoryImpl @Inject constructor(
         return try {
             val serviceId = UUID.randomUUID().toString()
             val newService = service.copy(id = serviceId, isActive = true)
-            servicesRef.document(serviceId).set(newService).await()
+            // Save as map to ensure proper field names
+            val serviceMap = mapOf(
+                "id" to newService.id,
+                "workerId" to newService.workerId,
+                "name" to newService.name,
+                "category" to newService.category.name,
+                "description" to newService.description,
+                "startingPrice" to newService.startingPrice,
+                "pricingType" to newService.pricingType.name,
+                "estimatedDuration" to newService.estimatedDuration.name,
+                "tags" to newService.tags,
+                "isActive" to newService.isActive,
+            )
+            servicesRef.document(serviceId).set(serviceMap).await()
+            Log.i(TAG, "Service saved: $serviceId for worker ${newService.workerId}")
             UiState.Success(newService)
         } catch (e: Exception) {
+            Log.e(TAG, "addService failed", e)
             UiState.Error(e.message ?: "Failed to add service")
         }
     }
 
     override suspend fun updateService(service: Service): UiState<Unit> {
         return try {
-            servicesRef.document(service.id).set(service).await()
+            val serviceMap = mapOf(
+                "id" to service.id,
+                "workerId" to service.workerId,
+                "name" to service.name,
+                "category" to service.category.name,
+                "description" to service.description,
+                "startingPrice" to service.startingPrice,
+                "pricingType" to service.pricingType.name,
+                "estimatedDuration" to service.estimatedDuration.name,
+                "tags" to service.tags,
+                "isActive" to service.isActive,
+            )
+            servicesRef.document(service.id).set(serviceMap).await()
             UiState.Success(Unit)
         } catch (e: Exception) {
             UiState.Error(e.message ?: "Failed to update service")
@@ -51,7 +81,7 @@ class ServiceRepositoryImpl @Inject constructor(
     override suspend fun deleteService(serviceId: String): UiState<Unit> {
         return try {
             servicesRef.document(serviceId)
-                .update(FirestoreCollections.Fields.IS_ACTIVE, false)
+                .update("isActive", false)
                 .await()
             UiState.Success(Unit)
         } catch (e: Exception) {
@@ -62,25 +92,70 @@ class ServiceRepositoryImpl @Inject constructor(
     override suspend fun getWorkerServices(workerId: String): UiState<List<Service>> {
         return try {
             val snapshot = servicesRef
-                .whereEqualTo(FirestoreCollections.Fields.WORKER_ID, workerId)
-                .whereEqualTo(FirestoreCollections.Fields.IS_ACTIVE, true)
+                .whereEqualTo("workerId", workerId)
+                .whereEqualTo("isActive", true)
                 .get()
                 .await()
-            UiState.Success(snapshot.toObjects(Service::class.java))
+            val services = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val data = doc.data ?: return@mapNotNull null
+                    val categoryStr = data["category"] as? String ?: "OTHER"
+                    val category = try { ServiceCategory.valueOf(categoryStr) } catch (e: Exception) { ServiceCategory.OTHER }
+                    val pricingStr = data["pricingType"] as? String ?: "STARTING_AT"
+                    val pricing = try { PricingType.valueOf(pricingStr) } catch (e: Exception) { PricingType.STARTING_AT }
+                    val durationStr = data["estimatedDuration"] as? String ?: "ONE_HOUR"
+                    val duration = try { ServiceDuration.valueOf(durationStr) } catch (e: Exception) { ServiceDuration.ONE_HOUR }
+                    Service(
+                        id = data["id"] as? String ?: doc.id,
+                        workerId = data["workerId"] as? String ?: workerId,
+                        name = data["name"] as? String ?: "",
+                        category = category,
+                        description = data["description"] as? String ?: "",
+                        startingPrice = (data["startingPrice"] as? Long)?.toInt() ?: 0,
+                        pricingType = pricing,
+                        estimatedDuration = duration,
+                        tags = (data["tags"] as? List<*>)?.filterIsInstance<String>() ?: emptyList(),
+                        isActive = data["isActive"] as? Boolean ?: true,
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse service ${doc.id}", e)
+                    null
+                }
+            }
+            if (services.isEmpty()) {
+                Log.d(TAG, "No services found for worker $workerId")
+            }
+            UiState.Success(services)
         } catch (e: Exception) {
-            UiState.Success(sampleServices())
+            Log.e(TAG, "getWorkerServices failed for $workerId", e)
+            UiState.Success(emptyList())
         }
     }
 
     override suspend fun getWorkerPortfolio(workerId: String): UiState<List<PortfolioItem>> {
         return try {
-            // Portfolio items are stored under workers/{uid}/portfolio subcollection
             val snapshot = firestore.collection(FirestoreCollections.WORKERS)
                 .document(workerId)
                 .collection("portfolio")
                 .get()
                 .await()
-            UiState.Success(snapshot.toObjects(PortfolioItem::class.java))
+            val items = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val data = doc.data ?: return@mapNotNull null
+                    val catStr = data["serviceCategory"] as? String ?: "OTHER"
+                    val cat = try { ServiceCategory.valueOf(catStr) } catch (e: Exception) { ServiceCategory.OTHER }
+                    PortfolioItem(
+                        id = data["id"] as? String ?: doc.id,
+                        workerId = data["workerId"] as? String ?: workerId,
+                        photoUrl = data["photoUrl"] as? String ?: "",
+                        caption = data["caption"] as? String ?: "",
+                        serviceCategory = cat,
+                    )
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            UiState.Success(items)
         } catch (e: Exception) {
             UiState.Success(emptyList())
         }
@@ -91,13 +166,13 @@ class ServiceRepositoryImpl @Inject constructor(
             val portfolio = (getWorkerPortfolio(workerId) as? UiState.Success)?.data ?: emptyList()
             UiState.Success(
                 PortfolioStats(
-                    projectCount = 12,
-                    photoCount = portfolio.size.coerceAtLeast(28),
-                    averageRating = 4.9,
+                    projectCount = maxOf(portfolio.size, 0),
+                    photoCount = portfolio.size,
+                    averageRating = 4.5,
                 )
             )
         } catch (e: Exception) {
-            UiState.Success(PortfolioStats(12, 28, 4.9))
+            UiState.Success(PortfolioStats(0, 0, 0.0))
         }
     }
 }

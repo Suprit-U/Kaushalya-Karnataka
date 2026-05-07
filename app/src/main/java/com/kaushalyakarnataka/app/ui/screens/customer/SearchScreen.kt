@@ -17,11 +17,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.animateContentSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kaushalyakarnataka.app.data.model.ServiceCategory
 import com.kaushalyakarnataka.app.ui.components.AppTopBar
@@ -45,10 +45,21 @@ fun SearchScreen(
     val query by viewModel.searchQuery.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+    
+    // Track if we've done initial load to avoid flicker
+    var hasInitialized by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialQuery, initialCategory) {
         if (initialQuery != null) viewModel.updateSearchQuery(initialQuery)
         if (initialCategory != null) viewModel.selectCategory(initialCategory)
+        hasInitialized = true
+    }
+    
+    LaunchedEffect(Unit) {
+        if (initialQuery == null && initialCategory == null) {
+            viewModel.loadAll()
+            hasInitialized = true
+        }
     }
 
     Scaffold(
@@ -83,6 +94,7 @@ fun SearchScreen(
 
             when (val state = searchResults) {
                 is UiState.Loading -> {
+                    // Always show skeletons while loading, never "No Kaushals Found"
                     LazyColumn {
                         items(5) { WorkerCardSkeleton() }
                     }
@@ -95,12 +107,18 @@ fun SearchScreen(
                     )
                 }
                 is UiState.Success -> {
-                    if (state.data.isEmpty()) {
+                    if (state.data.isEmpty() && hasInitialized && query.isNotBlank()) {
+                        // Only show empty state if user has searched and no results
                         EmptyState(
                             icon = Icons.Default.SearchOff,
                             title = "No Kaushals Found",
                             message = "Try adjusting your search query or category filter."
                         )
+                    } else if (state.data.isEmpty() && query.isBlank()) {
+                        // Still loading initial data
+                        LazyColumn {
+                            items(5) { WorkerCardSkeleton() }
+                        }
                     } else {
                         LazyColumn(
                             contentPadding = PaddingValues(bottom = 24.dp)

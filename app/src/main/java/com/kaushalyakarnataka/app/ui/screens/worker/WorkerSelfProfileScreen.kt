@@ -2,6 +2,7 @@ package com.kaushalyakarnataka.app.ui.screens.worker
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
@@ -22,7 +23,7 @@ import com.kaushalyakarnataka.app.utils.UiState
 import com.kaushalyakarnataka.app.viewmodel.AuthViewModel
 import com.kaushalyakarnataka.app.viewmodel.WorkerProfileViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun WorkerSelfProfileScreen(
     onNavigateBottomBar: (NavDestination) -> Unit,
@@ -362,7 +363,7 @@ private fun SwitchRow(label: String, checked: Boolean, onToggle: (Boolean) -> Un
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun WorkerEditDialog(
     currentName: String,

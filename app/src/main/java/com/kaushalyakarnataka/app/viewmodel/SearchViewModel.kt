@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -31,20 +30,35 @@ class SearchViewModel @Inject constructor(
     private val _selectedCategory = MutableStateFlow<ServiceCategory?>(null)
     val selectedCategory: StateFlow<ServiceCategory?> = _selectedCategory.asStateFlow()
 
-    private val _searchResults = MutableStateFlow<UiState<List<Worker>>>(UiState.Success(emptyList()))
+    // Start with Loading so UI shows skeleton, not empty state
+    private val _searchResults = MutableStateFlow<UiState<List<Worker>>>(UiState.Loading)
     val searchResults: StateFlow<UiState<List<Worker>>> = _searchResults.asStateFlow()
 
     init {
-        // Debounce search query changes to avoid hitting Firestore on every keystroke
         _searchQuery
-            .debounce(500)
+            .debounce(400)
             .distinctUntilChanged()
-            .onEach { performSearch() }
+            .onEach { query ->
+                if (query.isNotBlank() || _selectedCategory.value != null) {
+                    performSearch()
+                }
+            }
             .launchIn(viewModelScope)
+    }
+
+    /** Load all workers (for initial empty search state) */
+    fun loadAll() {
+        _searchResults.value = UiState.Loading
+        viewModelScope.launch {
+            _searchResults.value = workerRepository.getTopWorkers(limit = 50)
+        }
     }
 
     fun updateSearchQuery(query: String) {
         _searchQuery.value = query
+        if (query.isBlank() && _selectedCategory.value == null) {
+            loadAll()
+        }
     }
 
     fun selectCategory(category: ServiceCategory?) {
@@ -55,10 +69,13 @@ class SearchViewModel @Inject constructor(
     private fun performSearch() {
         _searchResults.value = UiState.Loading
         viewModelScope.launch {
-            _searchResults.value = workerRepository.searchWorkers(
-                query = _searchQuery.value,
-                category = _selectedCategory.value
-            )
+            val cat = _selectedCategory.value
+            val q = _searchQuery.value
+            _searchResults.value = if (q.isBlank() && cat == null) {
+                workerRepository.getTopWorkers(limit = 50)
+            } else {
+                workerRepository.searchWorkers(query = q, category = cat)
+            }
         }
     }
 }

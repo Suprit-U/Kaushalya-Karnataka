@@ -1,5 +1,6 @@
 package com.kaushalyakarnataka.app.data.repository
 
+import android.util.Log
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -10,6 +11,8 @@ import com.kaushalyakarnataka.app.utils.UiState
 import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
+
+private const val TAG = "BookingRepository"
 
 interface BookingRepository {
     suspend fun createBooking(booking: Booking): UiState<Booking>
@@ -36,9 +39,31 @@ class BookingRepositoryImpl @Inject constructor(
                 status = BookingStatus.PENDING,
                 createdAt = Timestamp.now(),
             )
-            bookingsRef.document(bookingId).set(newBooking).await()
+            // Save as a Map to ensure field names match exactly
+            val bookingMap = mapOf(
+                "id" to newBooking.id,
+                "customerId" to newBooking.customerId,
+                "customerName" to newBooking.customerName,
+                "workerId" to newBooking.workerId,
+                "workerName" to newBooking.workerName,
+                "service" to newBooking.service,
+                "scheduledDate" to newBooking.scheduledDate,
+                "timeSlot" to newBooking.timeSlot,
+                "address" to newBooking.address,
+                "notes" to newBooking.notes,
+                "status" to newBooking.status.name,
+                "estimatedCostMin" to newBooking.estimatedCostMin,
+                "estimatedCostMax" to newBooking.estimatedCostMax,
+                "bookingCode" to newBooking.bookingCode,
+                "couponCode" to newBooking.couponCode,
+                "discountAmount" to newBooking.discountAmount,
+                "createdAt" to newBooking.createdAt,
+            )
+            bookingsRef.document(bookingId).set(bookingMap).await()
+            Log.i(TAG, "Booking created: $bookingId for customer ${newBooking.customerId}")
             UiState.Success(newBooking)
         } catch (e: Exception) {
+            Log.e(TAG, "createBooking failed", e)
             UiState.Error(e.message ?: "Failed to create booking")
         }
     }
@@ -46,49 +71,89 @@ class BookingRepositoryImpl @Inject constructor(
     override suspend fun getCustomerBookings(customerId: String): UiState<List<Booking>> {
         return try {
             val snapshot = bookingsRef
-                .whereEqualTo(FirestoreCollections.Fields.CUSTOMER_ID, customerId)
-                .orderBy(FirestoreCollections.Fields.CREATED_AT, Query.Direction.DESCENDING)
+                .whereEqualTo("customerId", customerId)
                 .get()
                 .await()
-            UiState.Success(snapshot.toObjects(Booking::class.java))
+            val bookings = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val data = doc.data ?: return@mapNotNull null
+                    Booking(
+                        id = data["id"] as? String ?: doc.id,
+                        customerId = data["customerId"] as? String ?: "",
+                        customerName = data["customerName"] as? String ?: "",
+                        workerId = data["workerId"] as? String ?: "",
+                        workerName = data["workerName"] as? String ?: "",
+                        service = data["service"] as? String ?: "",
+                        scheduledDate = data["scheduledDate"] as? Timestamp ?: Timestamp.now(),
+                        timeSlot = data["timeSlot"] as? String ?: "",
+                        address = data["address"] as? String ?: "",
+                        notes = data["notes"] as? String ?: "",
+                        status = BookingStatus.valueOf(data["status"] as? String ?: "PENDING"),
+                        estimatedCostMin = (data["estimatedCostMin"] as? Long)?.toInt() ?: 0,
+                        estimatedCostMax = (data["estimatedCostMax"] as? Long)?.toInt() ?: 0,
+                        bookingCode = data["bookingCode"] as? String ?: "",
+                        createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse booking ${doc.id}", e)
+                    null
+                }
+            }.sortedByDescending { it.createdAt.seconds }
+            UiState.Success(bookings)
         } catch (e: Exception) {
-            UiState.Success(sampleBookings())
+            Log.e(TAG, "getCustomerBookings failed", e)
+            UiState.Success(emptyList())
         }
     }
 
     override suspend fun getWorkerBookings(workerId: String): UiState<List<Booking>> {
         return try {
             val snapshot = bookingsRef
-                .whereEqualTo(FirestoreCollections.Fields.WORKER_ID, workerId)
-                .orderBy(FirestoreCollections.Fields.SCHEDULED_DATE, Query.Direction.ASCENDING)
+                .whereEqualTo("workerId", workerId)
                 .get()
                 .await()
-            UiState.Success(snapshot.toObjects(Booking::class.java))
+            val bookings = parseBookings(snapshot.documents)
+                .sortedBy { it.scheduledDate.seconds }
+            UiState.Success(bookings)
         } catch (e: Exception) {
-            UiState.Success(sampleBookings())
+            Log.e(TAG, "getWorkerBookings failed", e)
+            UiState.Success(emptyList())
         }
     }
 
     override suspend fun getWorkerPendingBookings(workerId: String): UiState<List<Booking>> {
         return try {
             val snapshot = bookingsRef
-                .whereEqualTo(FirestoreCollections.Fields.WORKER_ID, workerId)
-                .whereEqualTo(FirestoreCollections.Fields.STATUS, BookingStatus.PENDING.name)
+                .whereEqualTo("workerId", workerId)
+                .whereEqualTo("status", BookingStatus.PENDING.name)
                 .get()
                 .await()
-            UiState.Success(snapshot.toObjects(Booking::class.java))
+            UiState.Success(parseBookings(snapshot.documents))
         } catch (e: Exception) {
-            UiState.Success(sampleBookings().filter { it.status == BookingStatus.PENDING })
+            Log.e(TAG, "getWorkerPendingBookings failed", e)
+            // Fallback: get all worker bookings and filter
+            try {
+                val allResult = getWorkerBookings(workerId)
+                if (allResult is UiState.Success) {
+                    UiState.Success(allResult.data.filter { it.status == BookingStatus.PENDING })
+                } else {
+                    UiState.Success(emptyList())
+                }
+            } catch (ex: Exception) {
+                UiState.Success(emptyList())
+            }
         }
     }
 
     override suspend fun updateBookingStatus(bookingId: String, status: BookingStatus): UiState<Unit> {
         return try {
             bookingsRef.document(bookingId)
-                .update(FirestoreCollections.Fields.STATUS, status.name)
+                .update("status", status.name)
                 .await()
+            Log.i(TAG, "Booking $bookingId updated to ${status.name}")
             UiState.Success(Unit)
         } catch (e: Exception) {
+            Log.e(TAG, "updateBookingStatus failed", e)
             UiState.Error(e.message ?: "Failed to update booking status")
         }
     }
@@ -96,11 +161,55 @@ class BookingRepositoryImpl @Inject constructor(
     override suspend fun getBookingById(bookingId: String): UiState<Booking> {
         return try {
             val snapshot = bookingsRef.document(bookingId).get().await()
-            val booking = snapshot.toObject(Booking::class.java)
-                ?: return UiState.Error("Booking not found")
+            val data = snapshot.data ?: return UiState.Error("Booking not found")
+            val booking = Booking(
+                id = data["id"] as? String ?: bookingId,
+                customerId = data["customerId"] as? String ?: "",
+                customerName = data["customerName"] as? String ?: "",
+                workerId = data["workerId"] as? String ?: "",
+                workerName = data["workerName"] as? String ?: "",
+                service = data["service"] as? String ?: "",
+                scheduledDate = data["scheduledDate"] as? Timestamp ?: Timestamp.now(),
+                timeSlot = data["timeSlot"] as? String ?: "",
+                address = data["address"] as? String ?: "",
+                notes = data["notes"] as? String ?: "",
+                status = BookingStatus.valueOf(data["status"] as? String ?: "PENDING"),
+                estimatedCostMin = (data["estimatedCostMin"] as? Long)?.toInt() ?: 0,
+                estimatedCostMax = (data["estimatedCostMax"] as? Long)?.toInt() ?: 0,
+                bookingCode = data["bookingCode"] as? String ?: "",
+                createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
+            )
             UiState.Success(booking)
         } catch (e: Exception) {
             UiState.Error(e.message ?: "Failed to load booking")
+        }
+    }
+
+    private fun parseBookings(docs: List<com.google.firebase.firestore.DocumentSnapshot>): List<Booking> {
+        return docs.mapNotNull { doc ->
+            try {
+                val data = doc.data ?: return@mapNotNull null
+                Booking(
+                    id = data["id"] as? String ?: doc.id,
+                    customerId = data["customerId"] as? String ?: "",
+                    customerName = data["customerName"] as? String ?: "",
+                    workerId = data["workerId"] as? String ?: "",
+                    workerName = data["workerName"] as? String ?: "",
+                    service = data["service"] as? String ?: "",
+                    scheduledDate = data["scheduledDate"] as? Timestamp ?: Timestamp.now(),
+                    timeSlot = data["timeSlot"] as? String ?: "",
+                    address = data["address"] as? String ?: "",
+                    notes = data["notes"] as? String ?: "",
+                    status = BookingStatus.valueOf(data["status"] as? String ?: "PENDING"),
+                    estimatedCostMin = (data["estimatedCostMin"] as? Long)?.toInt() ?: 0,
+                    estimatedCostMax = (data["estimatedCostMax"] as? Long)?.toInt() ?: 0,
+                    bookingCode = data["bookingCode"] as? String ?: "",
+                    createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to parse booking ${doc.id}", e)
+                null
+            }
         }
     }
 }

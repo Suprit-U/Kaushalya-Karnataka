@@ -1,5 +1,7 @@
 package com.kaushalyakarnataka.app.ui.screens.customer
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -14,6 +16,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -38,6 +41,7 @@ fun WorkerProfileScreen(
 ) {
     LaunchedEffect(workerId) { viewModel.loadWorkerProfile() }
 
+    val context = LocalContext.current
     val profileState by viewModel.workerState.collectAsState()
     val servicesState by viewModel.servicesState.collectAsState()
     val reviewsState by viewModel.reviewsState.collectAsState()
@@ -70,33 +74,44 @@ fun WorkerProfileScreen(
                 LazyColumn(
                     modifier = modifier.fillMaxSize().padding(paddingValues)
                 ) {
-                    // Hero
                     item { WorkerHeroSection(worker = worker, onBack = onNavigateBack) }
-
-                    // Stats strip
                     item { WorkerStatsStrip(worker = worker) }
-
-                    // Action buttons
                     item {
                         WorkerActionRow(
-                            onCall = {}, onChat = {},
+                            phone = worker.phone,
+                            onCall = {
+                                if (worker.phone.isNotBlank()) {
+                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${worker.phone}"))
+                                    context.startActivity(intent)
+                                }
+                            },
+                            onWhatsApp = {
+                                val number = worker.phone.replace(Regex("[^0-9]"), "")
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW,
+                                        Uri.parse("https://wa.me/91$number"))
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    val intent = Intent(Intent.ACTION_VIEW,
+                                        Uri.parse("https://wa.me/91$number"))
+                                    context.startActivity(intent)
+                                }
+                            },
                             onBook = { onNavigateToHire(workerId) }
                         )
                     }
 
-                    // Verification badge
                     if (worker.isVerified) {
                         item { VerificationBadge() }
                     }
 
-                    // About
                     item {
                         ProfileSection(title = "About") {
-                            Text(worker.bio, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(worker.bio.ifBlank { "Experienced ${worker.category.displayName} available for your service needs." },
+                                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
 
-                    // Tags
                     if (worker.tags.isNotEmpty()) {
                         item {
                             ProfileSection(title = "Skills") {
@@ -112,7 +127,6 @@ fun WorkerProfileScreen(
                         }
                     }
 
-                    // Services
                     when (val sv = servicesState) {
                         is UiState.Success -> if (sv.data.isNotEmpty()) {
                             item {
@@ -128,7 +142,6 @@ fun WorkerProfileScreen(
                         else -> {}
                     }
 
-                    // Portfolio
                     when (val pv = portfolioState) {
                         is UiState.Success -> if (pv.data.isNotEmpty()) {
                             item {
@@ -140,7 +153,6 @@ fun WorkerProfileScreen(
                         else -> {}
                     }
 
-                    // Reviews preview
                     when (val rv = reviewsState) {
                         is UiState.Success -> if (rv.data.isNotEmpty()) {
                             item {
@@ -204,7 +216,7 @@ private fun WorkerHeroSection(worker: Worker, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(12.dp))
             Text(worker.name, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
-            Text(worker.role, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
+            Text(worker.role.ifBlank { worker.category.displayName }, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
@@ -213,10 +225,12 @@ private fun WorkerHeroSection(worker: Worker, onBack: () -> Unit) {
                         Text(" ${worker.rating} · ${worker.reviewCount} reviews", style = MaterialTheme.typography.labelSmall, color = Color.White)
                     }
                 }
-                Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
-                    Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LocationOn, null, tint = Secondary, modifier = Modifier.size(14.dp))
-                        Text(" ${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                if (worker.distanceKm > 0) {
+                    Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
+                        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.LocationOn, null, tint = Secondary, modifier = Modifier.size(14.dp))
+                            Text(" ${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                        }
                     }
                 }
             }
@@ -245,23 +259,25 @@ private fun WorkerStatsStrip(worker: Worker) {
                     Text(value, style = MaterialTheme.typography.titleMedium, color = Primary, fontWeight = FontWeight.Bold)
                     Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (index < 2) Divider(modifier = Modifier.width(1.dp).height(40.dp).padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                if (index < 2) HorizontalDivider(modifier = Modifier.width(1.dp).height(40.dp).padding(vertical = 10.dp), color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }
 }
 
 @Composable
-private fun WorkerActionRow(onCall: () -> Unit, onChat: () -> Unit, onBook: () -> Unit) {
+private fun WorkerActionRow(phone: String, onCall: () -> Unit, onWhatsApp: () -> Unit, onBook: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        OutlinedIconButton(onClick = onCall, modifier = Modifier.size(46.dp), shape = CircleShape) {
-            Icon(Icons.Default.Call, null, tint = Primary)
-        }
-        OutlinedIconButton(onClick = onChat, modifier = Modifier.size(46.dp), shape = CircleShape) {
-            Icon(Icons.Default.Chat, null, tint = Primary)
+        if (phone.isNotBlank()) {
+            OutlinedIconButton(onClick = onCall, modifier = Modifier.size(46.dp), shape = CircleShape) {
+                Icon(Icons.Default.Call, contentDescription = "Call Worker", tint = Primary)
+            }
+            OutlinedIconButton(onClick = onWhatsApp, modifier = Modifier.size(46.dp), shape = CircleShape) {
+                Icon(Icons.Default.Chat, contentDescription = "WhatsApp Worker", tint = Primary)
+            }
         }
         Button(
             onClick = onBook,
