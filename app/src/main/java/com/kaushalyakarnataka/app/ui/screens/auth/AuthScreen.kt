@@ -1,22 +1,33 @@
 package com.kaushalyakarnataka.app.ui.screens.auth
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.Image
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.*
+import androidx.compose.ui.res.painterResource
+import com.kaushalyakarnataka.app.R
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kaushalyakarnataka.app.data.model.UserRole
@@ -55,7 +66,7 @@ fun AuthScreen(
     val headerColor2 = if (isWorker) Color(0xFF1E3A8A) else PrimaryLight
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Gradient header
+        // Premium animated gradient header
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -63,53 +74,92 @@ fun AuthScreen(
                 .padding(bottom = 28.dp)
         ) {
             Column(modifier = Modifier.padding(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
-                ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
-                }
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    text = if (isLogin) "Welcome back 👋" else "Create Account",
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.height(4.dp))
-                Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.2f)) {
-                    Text(
-                        text = "$roleLabel Portal",
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = Color.White
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onBackClick,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(0.15f))
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Image(
+                        painter = painterResource(id = R.drawable.logo),
+                        contentDescription = "App Logo",
+                        modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
                     )
                 }
                 Spacer(Modifier.height(20.dp))
-                // Tab switcher
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.White.copy(alpha = 0.15f),
-                    modifier = Modifier.fillMaxWidth()
+                AnimatedContent(
+                    targetState = isLogin,
+                    transitionSpec = {
+                        (fadeIn(tween(250)) + slideInVertically { it / 4 }) togetherWith
+                        (fadeOut(tween(150)) + slideOutVertically { it / 4 })
+                    },
+                    label = "header_title"
+                ) { login ->
+                    Column {
+                        Text(
+                            text = if (login) "Welcome back 👋" else "Create Account",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = if (login) "Sign in to your $roleLabel account" else "Join as a $roleLabel today",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = Color.White.copy(0.8f)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(20.dp))
+                // Premium glass segmented control
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(0.12f))
+                        .padding(4.dp)
                 ) {
-                    Row(modifier = Modifier.padding(4.dp)) {
-                        listOf("Log In" to true, "Sign Up" to false).forEach { (label, login) ->
+                    val items = listOf("Log In" to true, "Sign Up" to false)
+                    val selectedIndex = if (isLogin) 0 else 1
+                    // Sliding indicator
+                    val indicatorOffset by animateDpAsState(
+                        targetValue = if (selectedIndex == 0) 0.dp else (remember { mutableStateOf(0) }.value.let {
+                            // Approximate half width minus padding
+                            // Since we use weight-based, we'll overlay the active pill on the selected item
+                            0.dp
+                        }),
+                        animationSpec = spring(stiffness = 400f, dampingRatio = 0.7f),
+                        label = "tab_indicator"
+                    )
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        items.forEach { (label, login) ->
                             val selected = isLogin == login
-                            Surface(
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (selected) Color.White else Color.Transparent,
-                                onClick = { isLogin = login }
+                            val itemScale by animateFloatAsState(
+                                targetValue = if (selected) 1.02f else 0.98f,
+                                animationSpec = spring(stiffness = 500f),
+                                label = "tab_scale"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .scale(itemScale)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (selected) Color.White else Color.Transparent)
+                                    .clickable(onClick = { isLogin = login; viewModel.clearError() }),
+                                contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = label,
-                                    modifier = Modifier.padding(vertical = 10.dp),
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = if (selected) Primary else Color.White.copy(alpha = 0.7f),
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    color = if (selected) Primary else Color.White.copy(0.7f),
+                                    fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold
                                 )
                             }
                         }
@@ -118,118 +168,139 @@ fun AuthScreen(
             }
         }
 
-        // Form body
+        // Premium form body
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            if (!isLogin) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Full Name") },
-                    leadingIcon = { Icon(Icons.Default.Person, null) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
-                )
-                OutlinedTextField(
-                    value = phone,
-                    onValueChange = { phone = it },
-                    label = { Text("Phone Number") },
-                    leadingIcon = { Icon(Icons.Default.Phone, null) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
-                )
+            AnimatedVisibility(
+                visible = !isLogin,
+                enter = expandVertically(tween(300)) + fadeIn(tween(250)),
+                exit = shrinkVertically(tween(200)) + fadeOut(tween(150))
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    PremiumTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = "Full Name",
+                        leadingIcon = Icons.Default.Person,
+                        singleLine = true
+                    )
+                    PremiumTextField(
+                        value = phone,
+                        onValueChange = { phone = it },
+                        label = "Phone Number",
+                        leadingIcon = Icons.Default.Phone,
+                        keyboardType = KeyboardType.Phone,
+                        singleLine = true
+                    )
+                }
             }
 
-            OutlinedTextField(
+            PremiumTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text("Email Address") },
-                leadingIcon = { Icon(Icons.Default.Email, null) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
+                label = "Email Address",
+                leadingIcon = Icons.Default.Email,
+                keyboardType = KeyboardType.Email,
+                singleLine = true
             )
 
-            OutlinedTextField(
+            PremiumTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Password") },
-                leadingIcon = { Icon(Icons.Default.Lock, null) },
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = "Toggle password"
-                        )
-                    }
-                },
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                label = "Password",
+                leadingIcon = Icons.Default.Lock,
+                keyboardType = KeyboardType.Password,
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
+                isPassword = true,
+                passwordVisible = passwordVisible,
+                onTogglePassword = { passwordVisible = !passwordVisible }
             )
 
-            // Error display
+            // Premium error display
             val error = (authState as? UiState.Error)?.message
-            if (!error.isNullOrBlank()) {
+            AnimatedVisibility(
+                visible = !error.isNullOrBlank(),
+                enter = expandVertically(tween(250)) + fadeIn(tween(200)),
+                exit = shrinkVertically(tween(150)) + fadeOut(tween(100))
+            ) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.errorContainer
+                    shape = RoundedCornerShape(14.dp),
+                    color = Error.copy(0.08f),
+                    modifier = Modifier.fillMaxWidth().border(1.dp, Error.copy(0.2f), RoundedCornerShape(14.dp))
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Error, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Error.copy(0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Error, null, tint = Error, modifier = Modifier.size(18.dp))
+                        }
                         Text(
-                            text = error,
+                            text = error ?: "",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
+                            color = Error,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
 
-            Button(
-                onClick = {
-                    viewModel.clearError()
-                    if (isLogin) {
-                        viewModel.loginWithRole(email.trim(), password, role)
-                    } else {
-                        viewModel.register(name, email.trim(), password, phone, role)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                enabled = authState !is UiState.Loading,
-                colors = ButtonDefaults.buttonColors(containerColor = if (isWorker) Primary else Primary)
+            // Premium gradient CTA button
+            val isLoading = authState is UiState.Loading
+            val btnScale by animateFloatAsState(
+                targetValue = if (isLoading) 0.98f else 1f,
+                animationSpec = spring(stiffness = 400f),
+                label = "btn_scale"
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+                    .scale(btnScale)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Brush.horizontalGradient(listOf(Primary, PrimaryLight)))
+                    .clickable(enabled = !isLoading) {
+                        viewModel.clearError()
+                        if (isLogin) {
+                            viewModel.loginWithRole(email.trim(), password, role)
+                        } else {
+                            viewModel.register(name, email.trim(), password, phone, role)
+                        }
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                if (authState is UiState.Loading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                if (isLoading) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp)
                 } else {
-                    Icon(
-                        if (isLogin) Icons.AutoMirrored.Filled.Login else Icons.Default.PersonAdd,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        if (isLogin) "Login as $roleLabel" else "Create $roleLabel Account",
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            if (isLogin) Icons.AutoMirrored.Filled.Login else Icons.Default.PersonAdd,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            if (isLogin) "Login as $roleLabel" else "Create $roleLabel Account",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
 
@@ -241,16 +312,91 @@ fun AuthScreen(
                 Text(
                     text = if (isLogin) "Don't have an account?" else "Already have an account?",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = Text3
                 )
                 TextButton(onClick = { isLogin = !isLogin; viewModel.clearError() }) {
                     Text(
                         if (isLogin) "Sign Up" else "Login",
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         color = Primary
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun PremiumTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    singleLine: Boolean = true,
+    isPassword: Boolean = false,
+    passwordVisible: Boolean = false,
+    onTogglePassword: () -> Unit = {}
+) {
+    val isFocused = remember { mutableStateOf(false) }
+    val borderColor by animateColorAsState(
+        targetValue = if (isFocused.value) Primary else Border.copy(0.6f),
+        animationSpec = tween(200),
+        label = "field_border"
+    )
+    val labelColor by animateColorAsState(
+        targetValue = if (isFocused.value) Primary else Text3,
+        animationSpec = tween(200),
+        label = "field_label"
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (isFocused.value) Primary.copy(0.03f) else MaterialTheme.colorScheme.surface,
+        animationSpec = tween(200),
+        label = "field_bg"
+    )
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, color = labelColor) },
+        modifier = modifier
+            .fillMaxWidth()
+            .onFocusChanged { isFocused.value = it.isFocused },
+        leadingIcon = {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Primary.copy(0.06f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(leadingIcon, null, tint = Primary.copy(0.7f), modifier = Modifier.size(18.dp))
+            }
+        },
+        trailingIcon = if (isPassword) {
+            {
+                IconButton(onClick = onTogglePassword) {
+                    Icon(
+                        if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                        contentDescription = "Toggle password",
+                        tint = Text3
+                    )
+                }
+            }
+        } else null,
+        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        singleLine = singleLine,
+        shape = RoundedCornerShape(16.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = borderColor,
+            unfocusedBorderColor = borderColor,
+            focusedContainerColor = bgColor,
+            unfocusedContainerColor = bgColor,
+            focusedTextColor = Text1,
+            unfocusedTextColor = Text1,
+            cursorColor = Primary
+        )
+    )
 }

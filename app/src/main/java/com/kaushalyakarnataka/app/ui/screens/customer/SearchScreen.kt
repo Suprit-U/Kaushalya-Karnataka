@@ -24,9 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kaushalyakarnataka.app.data.model.ServiceCategory
-import com.kaushalyakarnataka.app.ui.components.AppTopBar
 import com.kaushalyakarnataka.app.ui.components.CategoryChipRow
 import com.kaushalyakarnataka.app.ui.components.EmptyState
+import com.kaushalyakarnataka.app.ui.components.KaushalyaBottomNav
+import com.kaushalyakarnataka.app.ui.components.NavDestination
 import com.kaushalyakarnataka.app.ui.components.SearchBarField
 import com.kaushalyakarnataka.app.ui.components.SearchResultCard
 import com.kaushalyakarnataka.app.ui.components.WorkerCardSkeleton
@@ -38,7 +39,7 @@ fun SearchScreen(
     initialQuery: String? = null,
     initialCategory: ServiceCategory? = null,
     onNavigateToWorkerProfile: (String) -> Unit,
-    onBackClick: () -> Unit,
+    onNavigateBottomBar: (NavDestination) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
@@ -63,10 +64,10 @@ fun SearchScreen(
     }
 
     Scaffold(
-        topBar = {
-            AppTopBar(
-                title = "Search",
-                onBackClick = onBackClick
+        bottomBar = {
+            KaushalyaBottomNav(
+                currentDestination = NavDestination.SEARCH,
+                onNavigate = onNavigateBottomBar
             )
         }
     ) { paddingValues ->

@@ -1,23 +1,27 @@
 package com.kaushalyakarnataka.app.ui.screens.worker
 
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kaushalyakarnataka.app.data.model.ServiceCategory
+import kotlinx.coroutines.launch
 import com.kaushalyakarnataka.app.ui.components.*
 import com.kaushalyakarnataka.app.ui.theme.*
 import com.kaushalyakarnataka.app.utils.UiState
@@ -61,13 +65,16 @@ fun WorkerSelfProfileScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("My Profile", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+                title = { Text("My Profile", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White) },
                 actions = {
                     IconButton(onClick = { showEditDialog = true }) {
-                        Icon(Icons.Default.Edit, "Edit Profile")
+                        Icon(Icons.Default.Edit, "Edit Profile", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent
+                )
             )
         },
         bottomBar = {
@@ -105,40 +112,77 @@ fun WorkerSelfProfileScreen(
                 ) {
                     // Hero profile card
                     item {
+                        val orbTrans = rememberInfiniteTransition(label = "prof_orbs")
+                        val profOrb1 by orbTrans.animateFloat(
+                            initialValue = -6f, targetValue = 6f,
+                            animationSpec = infiniteRepeatable(tween(6000, easing = LinearEasing), RepeatMode.Reverse),
+                            label = "prof_orb1"
+                        )
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(Brush.verticalGradient(listOf(Color(0xFF0F2055), PrimaryLight)))
-                                .padding(24.dp),
+                                .padding(top = 20.dp, bottom = 32.dp)
+                                .padding(horizontal = 20.dp),
                             contentAlignment = Alignment.Center
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(80.dp)
+                                    .offset(x = (-20).dp, y = profOrb1.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(0.05f))
+                                    .align(Alignment.TopStart)
+                            )
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                // Avatar
+                                // Avatar with glass ring
                                 Box(contentAlignment = Alignment.BottomEnd) {
-                                    AvatarComponent(imageUrl = worker.avatarUrl, name = worker.name, size = 96.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(108.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(0.15f))
+                                            .padding(4.dp)
+                                    ) {
+                                        AvatarComponent(imageUrl = worker.avatarUrl, name = worker.name, size = 100.dp)
+                                    }
                                     if (worker.isVerified) {
                                         Box(
-                                            modifier = Modifier.size(26.dp).clip(CircleShape)
-                                                .background(Primary).border(2.dp, Color.White, CircleShape),
+                                            modifier = Modifier
+                                                .size(30.dp)
+                                                .clip(CircleShape)
+                                                .background(Primary)
+                                                .border(2.dp, Color.White, CircleShape),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(Icons.Default.Verified, null, tint = Color.White, modifier = Modifier.size(15.dp))
+                                            Icon(Icons.Default.Verified, null, tint = Color.White, modifier = Modifier.size(16.dp))
                                         }
                                     }
                                 }
-                                Spacer(Modifier.height(12.dp))
-                                Text(worker.name, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    worker.name,
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Spacer(Modifier.height(4.dp))
                                 Text(
                                     if (worker.role.isNotBlank()) worker.role else worker.category.displayName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.8f)
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    fontWeight = FontWeight.Medium
                                 )
-                                Spacer(Modifier.height(12.dp))
-                                // Chips row
+                                Spacer(Modifier.height(14.dp))
+                                // Premium chips row
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = Color.White.copy(alpha = 0.12f),
+                                        border = BorderStroke(1.dp, Color.White.copy(0.2f))
+                                    ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
@@ -147,25 +191,35 @@ fun WorkerSelfProfileScreen(
                                                 Text(
                                                     String.format("%.1f", worker.rating),
                                                     style = MaterialTheme.typography.labelSmall,
-                                                    color = Color.White
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold
                                                 )
                                             }
                                         }
                                     }
                                     if (worker.isAvailable) {
-                                        Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF16A34A).copy(alpha = 0.3f)) {
+                                        Surface(
+                                            shape = RoundedCornerShape(20.dp),
+                                            color = Color(0xFF22C55E).copy(alpha = 0.25f),
+                                            border = BorderStroke(1.dp, Color(0xFF22C55E).copy(0.4f))
+                                        ) {
                                             Text(
                                                 "Available",
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = Color.White
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold
                                             )
                                         }
                                     }
                                     if (worker.location.isNotBlank()) {
-                                        Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
+                                        Surface(
+                                            shape = RoundedCornerShape(20.dp),
+                                            color = Color.White.copy(alpha = 0.12f),
+                                            border = BorderStroke(1.dp, Color.White.copy(0.2f))
+                                        ) {
                                             Row(
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                                             ) {
@@ -181,32 +235,31 @@ fun WorkerSelfProfileScreen(
 
                     // Stats strip
                     item {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            color = MaterialTheme.colorScheme.surface,
-                            shadowElevation = 4.dp
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .offset(y = (-16).dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Row(modifier = Modifier.fillMaxWidth()) {
-                                listOf(
-                                    Triple("${worker.reviewCount}", "Reviews", Icons.Default.Reviews),
-                                    Triple(worker.category.displayName, "Role", Icons.Default.Work),
-                                    Triple(if (worker.isAvailable) "Available" else "Busy", "Status", Icons.Default.EventAvailable),
-                                ).forEachIndexed { i, (val_, label, icon) ->
-                                    Column(
-                                        modifier = Modifier.weight(1f).padding(vertical = 14.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Icon(icon, null, tint = Primary, modifier = Modifier.size(18.dp))
-                                        Spacer(Modifier.height(3.dp))
-                                        Text(val_, style = MaterialTheme.typography.labelLarge, color = Primary, fontWeight = FontWeight.Bold)
-                                        Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                    if (i < 2) HorizontalDivider(
-                                        modifier = Modifier.width(1.dp).height(40.dp).padding(vertical = 8.dp),
-                                        color = MaterialTheme.colorScheme.outlineVariant
-                                    )
-                                }
-                            }
+                            WorkerStatCard(
+                                icon = Icons.AutoMirrored.Filled.EventNote,
+                                label = "Jobs",
+                                value = "${worker.reviewCount}",
+                                modifier = Modifier.weight(1f)
+                            )
+                            WorkerStatCard(
+                                icon = Icons.Default.Work,
+                                label = "Role",
+                                value = worker.category.displayName.take(8),
+                                modifier = Modifier.weight(1f)
+                            )
+                            WorkerStatCard(
+                                icon = Icons.Default.EventAvailable,
+                                label = "Status",
+                                value = if (worker.isAvailable) "Active" else "Busy",
+                                modifier = Modifier.weight(1f)
+                            )
                         }
                     }
 
@@ -255,31 +308,36 @@ fun WorkerSelfProfileScreen(
                         SectionBlock(title = "Settings") {
                             SettingsRow(Icons.Default.Notifications, "Notifications") { showNotifDialog = true }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(0.4f))
-                            SettingsRow(
-                                if (themeState.isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-                                "Dark Mode"
-                            ) { themeState.toggle() }
+                            val scope = rememberCoroutineScope()
+                            SettingsSwitchRow(
+                                icon = if (themeState.isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                                label = "Dark Mode",
+                                checked = themeState.isDark,
+                                onToggle = { scope.launch { themeState.toggle() } }
+                            )
                         }
                     }
 
                     // Logout
                     item {
                         Spacer(Modifier.height(8.dp))
-                        Surface(
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            color = ErrorTint
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().clickable {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .height(52.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Brush.horizontalGradient(listOf(Error.copy(0.9f), Error.copy(0.7f))))
+                                .clickable {
                                     authViewModel.logout()
                                     onLogout()
-                                }.padding(horizontal = 16.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Error, modifier = Modifier.size(22.dp))
-                                Spacer(Modifier.width(12.dp))
-                                Text("Log Out", style = MaterialTheme.typography.bodyMedium, color = Error, fontWeight = FontWeight.SemiBold)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.AutoMirrored.Filled.Logout, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(10.dp))
+                                Text("Log Out", style = MaterialTheme.typography.titleMedium, color = Color.White, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -323,13 +381,24 @@ fun WorkerSelfProfileScreen(
 
 @Composable
 private fun SectionBlock(title: String, action: @Composable (() -> Unit)? = null, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            action?.invoke()
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            .shadow(3.dp, RoundedCornerShape(16.dp), spotColor = Primary.copy(0.04f)),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, Border.copy(0.3f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Text1)
+                action?.invoke()
+            }
+            Spacer(Modifier.height(12.dp))
+            content()
         }
-        Spacer(Modifier.height(10.dp))
-        content()
     }
 }
 
@@ -385,10 +454,53 @@ private fun SettingsRow(icon: ImageVector, label: String, onClick: () -> Unit) {
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = Primary, modifier = Modifier.size(22.dp))
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Primary.copy(0.08f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = Primary.copy(0.8f), modifier = Modifier.size(20.dp))
+        }
         Spacer(Modifier.width(14.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = Text1, modifier = Modifier.weight(1f))
+        Icon(Icons.Default.ChevronRight, null, tint = Text4, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+private fun SettingsSwitchRow(
+    icon: ImageVector,
+    label: String,
+    checked: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Primary.copy(0.08f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = Primary.copy(0.8f), modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = Text1, modifier = Modifier.weight(1f))
+        Switch(
+            checked = checked,
+            onCheckedChange = { onToggle() },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Primary,
+                checkedTrackColor = Primary.copy(0.5f),
+                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        )
     }
 }
 
@@ -485,4 +597,50 @@ private fun WorkerEditDialog(
         confirmButton = { Button(onClick = { onSave(name, phone, bio, role, category, baseCharge.toIntOrNull() ?: 0) }, enabled = name.isNotBlank() && (baseCharge.toIntOrNull() ?: 0) > 0) { Text("Save") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+}
+
+@Composable
+private fun WorkerStatCard(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .shadow(3.dp, RoundedCornerShape(16.dp), spotColor = Primary.copy(0.05f)),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, Border.copy(0.3f))
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Primary.copy(0.08f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = Primary.copy(0.8f), modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                color = Text1,
+                maxLines = 1
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Text3,
+                maxLines = 1
+            )
+        }
+    }
 }

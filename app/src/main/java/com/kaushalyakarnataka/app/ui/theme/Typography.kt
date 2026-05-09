@@ -17,6 +17,7 @@ val provider = GoogleFont.Provider(
 
 val PoppinsFont = GoogleFont("Poppins")
 val InterFont = GoogleFont("Inter")
+val ManropeFont = GoogleFont("Manrope")
 
 val Poppins = FontFamily(
     Font(googleFont = PoppinsFont, fontProvider = provider, weight = FontWeight.Normal),
@@ -31,6 +32,14 @@ val Inter = FontFamily(
     Font(googleFont = InterFont, fontProvider = provider, weight = FontWeight.Medium),
     Font(googleFont = InterFont, fontProvider = provider, weight = FontWeight.SemiBold),
     Font(googleFont = InterFont, fontProvider = provider, weight = FontWeight.Bold),
+)
+
+val Manrope = FontFamily(
+    Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Normal),
+    Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Medium),
+    Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.SemiBold),
+    Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.Bold),
+    Font(googleFont = ManropeFont, fontProvider = provider, weight = FontWeight.ExtraBold),
 )
 
 val KaushalyaTypography = Typography(
@@ -59,36 +68,36 @@ val KaushalyaTypography = Typography(
         fontSize = 16.sp, lineHeight = 22.sp,
     ),
     titleLarge = TextStyle(
-        fontFamily = Poppins, fontWeight = FontWeight.Bold,
-        fontSize = 18.sp, lineHeight = 24.sp,
+        fontFamily = Manrope, fontWeight = FontWeight.Bold,
+        fontSize = 20.sp, lineHeight = 26.sp, letterSpacing = (-0.2).sp,
     ),
     titleMedium = TextStyle(
-        fontFamily = Poppins, fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = 0.1.sp,
+        fontFamily = Manrope, fontWeight = FontWeight.SemiBold,
+        fontSize = 17.sp, lineHeight = 24.sp, letterSpacing = (-0.1).sp,
     ),
     titleSmall = TextStyle(
-        fontFamily = Inter, fontWeight = FontWeight.Medium,
-        fontSize = 14.sp, lineHeight = 20.sp,
+        fontFamily = Manrope, fontWeight = FontWeight.Medium,
+        fontSize = 15.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp,
     ),
     bodyLarge = TextStyle(
         fontFamily = Inter, fontWeight = FontWeight.Normal,
-        fontSize = 15.sp, lineHeight = 24.sp,
+        fontSize = 16.sp, lineHeight = 26.sp, letterSpacing = 0.15.sp,
     ),
     bodyMedium = TextStyle(
         fontFamily = Inter, fontWeight = FontWeight.Normal,
-        fontSize = 13.sp, lineHeight = 20.sp,
+        fontSize = 14.sp, lineHeight = 22.sp, letterSpacing = 0.1.sp,
     ),
     bodySmall = TextStyle(
-        fontFamily = Inter, fontWeight = FontWeight.Normal,
-        fontSize = 12.sp, lineHeight = 18.sp,
-    ),
-    labelLarge = TextStyle(
-        fontFamily = Inter, fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.1.sp,
-    ),
-    labelMedium = TextStyle(
         fontFamily = Inter, fontWeight = FontWeight.Medium,
         fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.2.sp,
+    ),
+    labelLarge = TextStyle(
+        fontFamily = Manrope, fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.15.sp,
+    ),
+    labelMedium = TextStyle(
+        fontFamily = Manrope, fontWeight = FontWeight.Medium,
+        fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.25.sp,
     ),
     labelSmall = TextStyle(
         fontFamily = Inter, fontWeight = FontWeight.SemiBold,

@@ -12,11 +12,16 @@ import com.kaushalyakarnataka.app.data.repository.ServiceRepository
 import com.kaushalyakarnataka.app.data.repository.ServiceRepositoryImpl
 import com.kaushalyakarnataka.app.data.repository.StorageRepository
 import com.kaushalyakarnataka.app.data.repository.StorageRepositoryImpl
+import com.kaushalyakarnataka.app.data.local.ThemePreferenceManager
+import com.kaushalyakarnataka.app.data.repository.AiSummaryRepository
+import com.kaushalyakarnataka.app.data.repository.AiSummaryRepositoryImpl
 import com.kaushalyakarnataka.app.data.repository.WorkerRepository
 import com.kaushalyakarnataka.app.data.repository.WorkerRepositoryImpl
 import dagger.Binds
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -44,4 +49,15 @@ abstract class AppModule {
 
     @Binds @Singleton
     abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository
+
+    @Binds @Singleton
+    abstract fun bindAiSummaryRepository(impl: AiSummaryRepositoryImpl): AiSummaryRepository
+
+    companion object {
+        @Provides
+        @Singleton
+        fun provideThemePreferenceManager(
+            @ApplicationContext context: android.content.Context
+        ): ThemePreferenceManager = ThemePreferenceManager(context)
+    }
 }

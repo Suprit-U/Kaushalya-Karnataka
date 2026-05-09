@@ -161,6 +161,30 @@ Last updated: 2026-05-06
 - [x] `docs/supabase/setup_guide.md`
 - [x] `docs/task.md`
 
+## Phase 14: UI Polish & Premium Design System
+
+- [x] `ui/components/animations/AnimationUtils.kt` — `AnimatedListItem`, `AnimatedCounter`, `PulseDot`, `CrossfadeContent`.
+- [x] `ui/components/animations/ShimmerEffect.kt` — `ShimmerBox`, `ShimmerCard`, `ShimmerCircle`, `ShimmerTextLine`.
+- [x] `ui/components/common/PremiumCards.kt` — `GradientCard`, `ElevatedSurfaceCard`, `StatCard`, `PremiumButton`, `PremiumOutlinedButton`, `EmptyStateView`, `StatusChip`, `GlassSurface`.
+- [x] `ui/components/WorkerCard.kt` — Redesigned with gradient accent, press scale, premium typography, and shadow.
+- [x] `ui/components/KaushalyaBottomNav.kt` — Floating pill-style nav with animated active indicator, icon scaling, and label expand/collapse.
+- [x] `ui/screens/customer/HomeScreen.kt` — Hero gradient with wave animation, glass search bar, category shadows, `TopWorkerCard` gradient CTA, accent `SectionHeader`.
+- [x] `ui/screens/worker/WorkerDashboardScreen.kt` — Glass header with pulse badge, `PremiumStatCard` with gradient, `EnhancedJobCard` with shadow and gradient actions.
+- [x] `ui/screens/customer/WorkerProfileScreen.kt` — 4-stop gradient hero, glass back button, accent `ProfileSection`, premium `ServicePricingRow`/`ReviewPreviewCard`, gradient bottom CTA.
+- [x] `ui/screens/common/NotificationsScreen.kt` — Unread accent border, larger icon containers, improved typography, dot indicator with border.
+
+## Phase 15: Dark Mode, Navigation & Bookings Premium Polish
+
+- [x] `ui/theme/Theme.kt` — Overhauled `DarkColorScheme` with AMOLED-friendly backgrounds, rich tonal surfaces (`DarkSurface`, `DarkSurfaceContainer`, etc.), and full Material 3 dark token coverage.
+- [x] `ui/theme/Color.kt` — Added comprehensive dark mode color tokens: `DarkBackground`, `DarkSurface`, `DarkSurfaceVariant`, `DarkSurfaceContainer` family, `DarkOutline`, `DarkInversePrimary`.
+- [x] `ui/theme/Typography.kt` — Added `Manrope` Google Font. Upgraded hierarchy: Manrope for titles/labels, Poppins for display/headlines, Inter for body. Larger sizes, better line-heights, refined letter-spacing.
+- [x] `ui/screens/customer/SearchScreen.kt` — Fixed navbar visibility issue by integrating `KaushalyaBottomNav` and `onNavigateBottomBar`. Search/Explore is now a proper persistent tab.
+- [x] `navigation/AppNavGraph.kt` — Search tab navigation uses `handleCustomerNav` with `saveState`/`restoreState` for seamless tab switching from HomeScreen.
+- [x] `ui/components/WorkerBottomNav.kt` — Complete pill-style redesign matching customer nav: floating rounded surface, spring pill expand, `AnimatedVisibility` labels, press-scale, shadow.
+- [x] `ui/screens/customer/CustomerBookingsScreen.kt` — Premium `CustomerBookingCard` redesign: status icon containers, gradient amount badges, `StatusPanel` component, premium `InfoChip`, rounded buttons. Empty state upgraded with illustration container.
+- [x] `ui/screens/worker/WorkerDashboardScreen.kt` — BookingsTab empty state and `InfoChip` upgraded with premium icon containers.
+- [x] `ui/components/animations/AnimationUtils.kt` — Added `ElasticPressEffect` (spring-based tactile press) and `ShimmerSweep` (smooth shimmer animation).
+
 ## Future Product Enhancements
 
 - [ ] Production Firestore security rules.
@@ -173,6 +197,61 @@ Last updated: 2026-05-06
 - [x] Firestore composite indexes defined and documented.
 - [x] Friendly error handling in notification repository and UI (no raw Firebase errors shown to users).
 - [x] Worker bio editing with dedicated dialog, character limit, and Snackbar feedback.
+- [x] Premium UI polish pass — animations, shadows, gradients, typography, shimmer loaders, pill navigation.
+
+## Phase 3: Premium Nav, Auth & Screen Overhaul
+
+- [x] `ui/components/KaushalyaBottomNav.kt` — Redesigned with true animated sliding pill indicator (`onGloballyPositioned` measurement + spring physics), gradient active pill, elastic press animations, enhanced 12dp shadow.
+- [x] `ui/screens/auth/WelcomeScreen.kt` — Complete redesign with radial gradient backgrounds, 3 floating orbs, pulsing logo in glass container, split headline typography, premium gradient CTA.
+- [x] `ui/screens/auth/RoleSelectionScreen.kt` — Gradient header, premium role cards with icon containers, spring selection scale, animated border colors, checkmark indicator, gradient continue button.
+- [x] `ui/screens/auth/AuthScreen.kt` — Animated header title transitions, glass segmented control, `PremiumTextField` with focus-tracking icon containers, animated border/label colors, premium error display, gradient action button with loading scale.
+- [x] `ui/screens/customer/HomeScreen.kt` — Auto-scroll promo banners (3s interval), floating decorative orbs in hero header.
+- [x] `ui/components/InputField.kt` — `SearchBarField` premium redesign: shadow, icon container, animated border, refined colors.
+- [x] `ui/components/ChipRow.kt` — Replaced `FilterChip` with custom `PremiumChip`: animated color transitions, selected shadow, bold typography.
+- [x] `ui/components/SearchResultCard.kt` — Surface + shadow, press-scale interaction, `VerifiedBadge`, rating badge container, price tag container.
+- [x] `ui/screens/customer/CustomerProfileScreen.kt` — Gradient header with transparent top bar, avatar ring, icon containers for all menu items, gradient logout button.
+- [x] `ui/screens/worker/WorkerDashboardScreen.kt` — Floating decorative orbs in dashboard header.
+- [x] `ui/screens/worker/WorkerSelfProfileScreen.kt` — Floating orb in hero, settings icon containers, gradient logout button.
+- [x] Build verified: `clean assembleDebug lintRelease` passes successfully.
+
+## Phase 4: Navbar Fix, Profile & Bookings Polish
+
+- [x] `ui/components/KaushalyaBottomNav.kt` — **Alignment fix**: Replaced complex `onGloballyPositioned` sliding indicator with simple weight-based `animateDpAsState` pill width. Perfect centering via `Arrangement.SpaceEvenly` + `Modifier.weight(1f)`. Consistent press scale, icon color tween, and spring pill width animations.
+- [x] `ui/screens/customer/HomeScreen.kt` — Greeting changed "Namaskara" → "Namaste 👋". Single shared `rememberInfiniteTransition` for all hero animations (eliminates nested transitions). Orbs use `LinearEasing` with slower 6000ms/7000ms durations for organic motion. Wave uses `FastOutSlowInEasing` with 4000ms/3px range for smooth floating.
+- [x] `ui/screens/customer/CustomerProfileScreen.kt` — Full redesign: transparent top bar over gradient header, floating orb, 112dp glass avatar ring, white camera button with shadow, role badge with border stroke, quick stats row (`CustomerStatCard` x3 with overlapping negative offset), section cards with shadow + border stroke, 36dp icon containers for all menu items, gradient logout button.
+- [x] `ui/screens/worker/WorkerSelfProfileScreen.kt` — Full redesign: transparent top bar over gradient header, 108dp glass avatar ring, larger verified badge (30dp), improved typography hierarchy (`headlineSmall` + `ExtraBold` for name), premium chips with `BorderStroke` glass effect, `WorkerStatCard` x3 stats strip with overlapping offset, `SectionBlock` cards with shadow + border, 36dp settings icon containers, gradient logout button.
+- [x] `ui/screens/worker/WorkerDashboardScreen.kt` — `EnhancedJobCard` redesigned: status-colored initial avatar placeholder, `MutableInteractionSource` press tracking, `BorderStroke` status-tinted card border, premium `PrimaryTint` amount badge, renamed `JobInfoChip`. `BookingsTab` redesigned: tab count badges with dynamic color, improved empty state (100dp container with border), keyed list items, increased spacing.
+- [x] Build verified: `clean assembleDebug lintRelease` passes successfully.
+
+## Phase 5: Theme System, Dark Mode Persistence, Navbar Premium Animations & Global Consistency
+
+- [x] `app/ui/theme/Theme.kt` — **DataStore persistence**: `ThemeState` now reads from/writes to `ThemePreferenceManager` (DataStore). `KaushalyaTheme` accepts `preferenceManager` and syncs state via `collectAsState`. Dark mode preference survives app restarts.
+- [x] `app/data/local/ThemePreferenceManager.kt` — New DataStore helper using `booleanPreferencesKey("dark_mode")` for persisting theme state.
+- [x] `app/di/AppModule.kt` — Added `@Provides` for `ThemePreferenceManager` in companion object.
+- [x] `app/MainActivity.kt` — Injects `ThemePreferenceManager` and passes it to `KaushalyaTheme`.
+- [x] `app/ui/theme/Color.kt` — Dark mode tokens redesigned: `DarkBackground` (`0xFF02040A`), `DarkSurface` (`0xFF0B1221`), `DarkSurfaceVariant` (`0xFF141D2E`) — richer navy surfaces with micro blue tint, avoiding flat gray. Added `DarkPrimaryTint` and `DarkCardBorder`.
+- [x] `ui/components/KaushalyaBottomNav.kt` — **Premium animations**: Gradient active pill (`Primary → PrimaryLight`), icon scale animation (`1.0f → 1.15f`), smoother spring physics (`stiffness=320f, dampingRatio=0.75f`), `expandHorizontally` with spring for label animation.
+- [x] `ui/components/WorkerBottomNav.kt` — **Matching premium animations**: Same gradient pill, icon scale, spring physics as customer navbar for design parity.
+- [x] `ui/screens/worker/WorkerSelfProfileScreen.kt` — **Proper dark mode switch**: Replaced `SettingsRow` with new `SettingsSwitchRow` composable using Material3 `Switch` with custom `SwitchDefaults.colors`. Wraps `themeState.toggle()` in `rememberCoroutineScope().launch`.
+- [x] `ui/screens/customer/CustomerProfileScreen.kt` / `HomeScreen.kt` — Fixed `themeState.toggle()` suspend calls by wrapping in `rememberCoroutineScope().launch`.
+- [x] `ui/screens/worker/WorkerDashboardScreen.kt` — **Timeline booking list**: Each `EnhancedJobCard` now wrapped in a timeline row with vertical status-colored connector lines and status dots between cards, creating a journey/progress feeling.
+- [x] `ui/screens/auth/WelcomeScreen.kt` — **Logo branding**: Replaced Handshake icon with `logo.png` (painterResource) in glass container with pulse animation.
+- [x] `ui/screens/auth/AuthScreen.kt` — **Logo branding**: Added `logo.png` (36dp) to gradient header next to back button.
+- [x] `app/src/main/res/drawable/logo.png` — Copied project root logo into drawable resources.
+- [x] Build verified: `clean assembleDebug lintRelease` passes successfully.
+
+## Phase 6: AI Review Summary (Customer Side)
+
+- [x] `app/build.gradle.kts` — **Secure API key storage**: Reads `OPENROUTER_API_KEY` from `local.properties` and injects into `BuildConfig` via `buildConfigField`. Never hardcoded in source.
+- [x] `app/data/model/openrouter/OpenRouterModels.kt` — Data models for OpenRouter API: `OpenRouterRequest`, `Message`, `OpenRouterResponse`, `Choice`, `MessageContent`, `OpenRouterError`.
+- [x] `app/data/remote/OpenRouterService.kt` — Ktor-based HTTP client for OpenRouter API. Calls `openai/gpt-oss-120b` with system prompt enforcing 1-3 line summaries and no hallucinations. Uses `BuildConfig.OPENROUTER_API_KEY` in Authorization header.
+- [x] `app/data/repository/AiSummaryRepository.kt` — Repository with DataStore caching. 24-hour cache TTL via `longPreferencesKey`. Checks cache before API call. Falls back to API only if cache expired or missing. Minimum 2 reviews required.
+- [x] `app/viewmodel/AiSummaryViewModel.kt` — Hilt ViewModel managing `UiState<String>` for summary. `generateSummary()` triggers repository, `retry()` clears cache and regenerates.
+- [x] `app/ui/components/AiReviewSummaryCard.kt` — Premium summary card with gradient border, AI sparkle icon in glass container. Handles all states: shimmer loading (`ShimmerLine`), error with retry, success with fade animation. Supports both light and dark mode via `MaterialTheme` tokens.
+- [x] `app/ui/screens/customer/WorkerProfileScreen.kt` — Integrated `AiReviewSummaryCard` into Reviews section below rating summary. `LaunchedEffect` triggers generation when reviews load. Injected `AiSummaryViewModel` alongside existing `WorkerProfileViewModel`.
+- [x] `app/di/AppModule.kt` — Added `@Binds` for `AiSummaryRepository`/`AiSummaryRepositoryImpl`.
+- [x] Build verified: `clean assembleDebug lintRelease` passes successfully.
+
 - [ ] Automated unit and UI tests.
 - [ ] Full localization pass.
 - [ ] Geo-location based worker filtering.

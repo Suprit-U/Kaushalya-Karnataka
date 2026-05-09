@@ -86,7 +86,7 @@ fun AppNavGraph(
         composable(NavRoutes.HOME) {
             HomeScreen(
                 onNavigateToSearch = { q ->
-                    navController.navigate(if (q != null) "search?query=${Uri.encode(q)}&category=" else searchRoute())
+                    handleCustomerNav(navController, NavDestination.SEARCH)
                 },
                 onNavigateToCategory = { cat ->
                     navController.navigate("search?query=&category=${cat.name}")
@@ -111,7 +111,7 @@ fun AppNavGraph(
                 initialQuery = query,
                 initialCategory = cat,
                 onNavigateToWorkerProfile = { navController.navigate("worker_profile/$it") },
-                onBackClick = { navController.popBackStack() }
+                onNavigateBottomBar = { handleCustomerNav(navController, it) }
             )
         }
 

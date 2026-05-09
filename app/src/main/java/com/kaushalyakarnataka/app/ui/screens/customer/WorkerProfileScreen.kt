@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -36,6 +37,7 @@ import com.kaushalyakarnataka.app.ui.theme.*
 import com.kaushalyakarnataka.app.utils.CurrencyUtils
 import com.kaushalyakarnataka.app.utils.DateUtils
 import com.kaushalyakarnataka.app.utils.UiState
+import com.kaushalyakarnataka.app.viewmodel.AiSummaryViewModel
 import com.kaushalyakarnataka.app.viewmodel.WorkerProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -46,7 +48,8 @@ fun WorkerProfileScreen(
     onNavigateToHire: (String) -> Unit,
     onNavigateToReviews: (String) -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: WorkerProfileViewModel = hiltViewModel()
+    viewModel: WorkerProfileViewModel = hiltViewModel(),
+    aiSummaryViewModel: AiSummaryViewModel = hiltViewModel()
 ) {
     LaunchedEffect(workerId) { viewModel.loadWorkerProfile() }
 
@@ -55,6 +58,7 @@ fun WorkerProfileScreen(
     val servicesState by viewModel.servicesState.collectAsState()
     val reviewsState by viewModel.reviewsState.collectAsState()
     val portfolioState by viewModel.portfolioState.collectAsState()
+    val summaryState by aiSummaryViewModel.summaryState.collectAsState()
     var showGallery by remember { mutableStateOf(false) }
     var selectedGalleryIndex by remember { mutableIntStateOf(0) }
     val portfolioItems = (portfolioState as? UiState.Success)?.data ?: emptyList()
@@ -184,6 +188,10 @@ fun WorkerProfileScreen(
                         is UiState.Success -> {
                             if (rv.data.isNotEmpty()) {
                                 item {
+                                    // Trigger AI summary generation when reviews are loaded
+                                    LaunchedEffect(rv.data) {
+                                        aiSummaryViewModel.generateSummary(workerId, rv.data)
+                                    }
                                     ProfileSection(title = "Reviews") {
                                         // Rating summary
                                         val avg = rv.data.map { it.rating }.average()
@@ -212,6 +220,14 @@ fun WorkerProfileScreen(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                                             }
                                         }
+
+                                        // AI Review Summary card
+                                        AiReviewSummaryCard(
+                                            state = summaryState,
+                                            onRetry = { aiSummaryViewModel.retry(workerId, rv.data) },
+                                            modifier = Modifier.padding(bottom = 12.dp)
+                                        )
+
                                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                             rv.data.take(3).forEach { review ->
                                                 ReviewPreviewCard(review = review)
@@ -260,15 +276,28 @@ fun WorkerProfileScreen(
 @Composable
 private fun WorkerHeroSection(worker: Worker, onBack: () -> Unit) {
     Box(
-        modifier = Modifier.fillMaxWidth().height(240.dp)
-            .background(Brush.verticalGradient(listOf(PrimaryDark, PrimaryLight)))
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(260.dp)
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF0F2055), PrimaryDark, Primary, PrimaryLight)
+                )
+            )
     ) {
-        IconButton(
+        Surface(
             onClick = onBack,
-            modifier = Modifier.align(Alignment.TopStart).padding(8.dp)
-                .clip(CircleShape).background(Color.White.copy(alpha = 0.15f))
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+                .size(40.dp),
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.12f),
+            shadowElevation = 0.dp
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
+            Box(contentAlignment = Alignment.Center) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
         }
 
         Column(
@@ -276,41 +305,70 @@ private fun WorkerHeroSection(worker: Worker, onBack: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box {
-                AvatarComponent(imageUrl = worker.avatarUrl, name = worker.name, size = 90.dp)
+                AvatarComponent(imageUrl = worker.avatarUrl, name = worker.name, size = 96.dp)
                 if (worker.isGovernmentCertified) {
                     Box(
-                        modifier = Modifier.align(Alignment.BottomEnd)
-                            .size(24.dp).clip(CircleShape).background(Primary)
-                            .border(2.dp, Color.White, CircleShape),
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset((-4).dp, (-4).dp)
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Success)
+                            .border(2.5.dp, Color.White, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Verified, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Verified, null, tint = Color.White, modifier = Modifier.size(16.dp))
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Text(worker.name, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(14.dp))
+            Text(
+                worker.name,
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.ExtraBold
+            )
             Text(
                 worker.role.ifBlank { worker.category.displayName },
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.8f)
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (worker.rating > 0 || worker.reviewCount > 0) {
-                    Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
-                        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Dimens.radiusFull))
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
-                            Text(" ${String.format("%.1f", worker.rating)} · ${worker.reviewCount} reviews",
-                                style = MaterialTheme.typography.labelSmall, color = Color.White)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                "${String.format("%.1f", worker.rating)} · ${worker.reviewCount} reviews",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
                 if (worker.location.isNotBlank()) {
-                    Surface(shape = RoundedCornerShape(20.dp), color = Color.White.copy(alpha = 0.15f)) {
-                        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(Dimens.radiusFull))
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.LocationOn, null, tint = Secondary, modifier = Modifier.size(14.dp))
-                            Text(" ${worker.location.take(20)}", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                " ${worker.location.take(20)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White
+                            )
                         }
                     }
                 }
@@ -405,35 +463,83 @@ private fun VerificationBadge() {
 
 @Composable
 private fun ProfileSection(title: String, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(10.dp))
+    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(20.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Brush.verticalGradient(listOf(Primary, PrimaryLight)))
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Text1
+            )
+        }
+        Spacer(Modifier.height(12.dp))
         content()
     }
 }
 
 @Composable
 private fun ServicePricingRow(service: Service) {
-    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.padding(14.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(14.dp), spotColor = Primary.copy(0.06f)),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 0.dp,
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(service.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text(service.estimatedDuration.displayLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    service.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Text1
+                )
+                Text(
+                    service.estimatedDuration.displayLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Text3
+                )
             }
             Column(horizontalAlignment = Alignment.End) {
                 if (service.startingPrice > 0) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(PrimaryTint)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            "~${CurrencyUtils.formatRupees(service.startingPrice)}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        "~${CurrencyUtils.formatRupees(service.startingPrice)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Primary,
-                        fontWeight = FontWeight.Bold
+                        service.pricingType.displayLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Text4
                     )
-                    Text(service.pricingType.displayLabel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text(
                         "Set by worker",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Text3,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
@@ -481,58 +587,123 @@ private fun PortfolioMiniGrid(
 
 @Composable
 private fun ReviewPreviewCard(review: Review) {
-    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp)) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(14.dp), spotColor = Warning.copy(0.06f)),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 0.dp,
+        tonalElevation = 1.dp
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AvatarComponent(imageUrl = review.customerAvatarUrl, name = review.customerName, size = 36.dp)
-                Spacer(Modifier.width(10.dp))
+                AvatarComponent(imageUrl = review.customerAvatarUrl, name = review.customerName, size = 40.dp)
+                Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(review.customerName, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                    Text(DateUtils.getRelativeTimeSpan(review.createdAt), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        review.customerName,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Text1
+                    )
+                    Text(
+                        DateUtils.getRelativeTimeSpan(review.createdAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Text4
+                    )
                 }
-                Row {
-                    repeat(review.rating) { Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp)) }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Warning.copy(0.1f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(2.dp))
+                        Text(
+                            review.rating.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Warning,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
             if (review.serviceType.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Surface(shape = RoundedCornerShape(8.dp), color = PrimaryTint) {
-                    Text(review.serviceType, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        style = MaterialTheme.typography.labelSmall, color = Primary)
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(PrimaryTint)
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        review.serviceType,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Primary,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
             Spacer(Modifier.height(8.dp))
-            Text(review.comment, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3)
+            Text(
+                review.comment,
+                style = MaterialTheme.typography.bodyMedium,
+                color = Text3,
+                maxLines = 3
+            )
         }
     }
 }
 
 @Composable
 private fun WorkerProfileBottomBar(startingPrice: Int, onBook: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 16.dp) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 8.dp,
+        tonalElevation = 2.dp
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Column {
-                Text("Approx. starting from", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
-                    if (startingPrice > 0) "~${CurrencyUtils.formatRupees(startingPrice)} starting" else "Book service",
+                    "Approx. starting from",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Text3
+                )
+                Text(
+                    if (startingPrice > 0) "~${CurrencyUtils.formatRupees(startingPrice)}" else "Book service",
                     style = MaterialTheme.typography.titleLarge,
                     color = Primary,
                     fontWeight = FontWeight.ExtraBold
                 )
             }
-            Button(
-                onClick = onBook,
-                modifier = Modifier.weight(1f).height(50.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Primary)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Brush.horizontalGradient(listOf(Primary, PrimaryLight)))
+                    .clickable(onClick = onBook),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.CalendarMonth, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Book Now", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.CalendarMonth, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "Book Now",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.White
+                    )
+                }
             }
         }
     }

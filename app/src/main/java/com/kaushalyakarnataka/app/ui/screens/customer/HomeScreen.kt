@@ -1,7 +1,10 @@
 package com.kaushalyakarnataka.app.ui.screens.customer
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.CircleShape
@@ -10,9 +13,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -20,6 +26,7 @@ import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kaushalyakarnataka.app.data.model.*
 import com.kaushalyakarnataka.app.ui.components.*
+import com.kaushalyakarnataka.app.ui.components.animations.ShimmerCard
 import com.kaushalyakarnataka.app.ui.theme.*
 import com.kaushalyakarnataka.app.utils.CurrencyUtils
 import com.kaushalyakarnataka.app.utils.DateUtils
@@ -61,9 +68,10 @@ fun HomeScreen(
         ) {
             // ── Hero Header ──
             item {
+                val scope = rememberCoroutineScope()
                 HomeHeroHeader(
                     onSearchClick = { onNavigateToSearch(null) },
-                    onThemeToggle = { themeState.toggle() },
+                    onThemeToggle = { scope.launch { themeState.toggle() } },
                     isDark = themeState.isDark,
                     unreadCount = unreadCount,
                     onNotificationsClick = { showNotifications = true }
@@ -205,18 +213,54 @@ private fun HomeHeroHeader(
     unreadCount: Int,
     isDark: Boolean
 ) {
+    // Single shared infinite transition for all hero animations
+    val infiniteTransition = rememberInfiniteTransition(label = "hero_float")
+    val orb1 by infiniteTransition.animateFloat(
+        initialValue = -10f, targetValue = 10f,
+        animationSpec = infiniteRepeatable(tween(7000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "orb1"
+    )
+    val orb2 by infiniteTransition.animateFloat(
+        initialValue = 8f, targetValue = -8f,
+        animationSpec = infiniteRepeatable(tween(6000, easing = LinearEasing), RepeatMode.Reverse),
+        label = "orb2"
+    )
+    val waveY by infiniteTransition.animateFloat(
+        initialValue = -3f, targetValue = 3f,
+        animationSpec = infiniteRepeatable(tween(4000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "wave_y"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Primary, PrimaryLight)
+                    colors = listOf(Primary, PrimaryDark, PrimaryLight)
                 ),
-                shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+                shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
             )
-            .padding(top = 16.dp, bottom = 28.dp)
+            .padding(top = 20.dp, bottom = 32.dp)
             .padding(horizontal = 20.dp)
     ) {
+        // Floating decorative orbs
+        Box(
+            modifier = Modifier
+                .size(100.dp)
+                .offset(x = (-20).dp, y = (10 + orb1).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(0.06f))
+                .align(Alignment.TopStart)
+        )
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .offset(x = (0).dp, y = (60 + orb2).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(0.04f))
+                .align(Alignment.TopEnd)
+        )
+
         Column {
             // Top row
             Row(
@@ -226,60 +270,77 @@ private fun HomeHeroHeader(
             ) {
                 Column {
                     Text(
-                        text = "Namaskara 👋",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Color.White.copy(alpha = 0.8f)
+                        text = "Namaste 👋",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.Medium
                     )
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = "Find Your Expert",
                         style = MaterialTheme.typography.headlineMedium,
                         color = Color.White,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.graphicsLayer { translationY = waveY }
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     // Theme toggle
-                    IconButton(
+                    Surface(
                         onClick = onThemeToggle,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.15f))
+                        modifier = Modifier.size(42.dp),
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.12f),
+                        shadowElevation = 0.dp
                     ) {
-                        Icon(
-                            imageVector = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                            contentDescription = "Toggle theme",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                                contentDescription = "Toggle theme",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                     // Notification
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.15f))
-                            .clickable(onClick = onNotificationsClick),
-                        contentAlignment = Alignment.Center
+                    Surface(
+                        onClick = onNotificationsClick,
+                        modifier = Modifier.size(42.dp),
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.12f),
+                        shadowElevation = 0.dp
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Notifications,
-                            contentDescription = "Notifications",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        if (unreadCount > 0) {
-                            Surface(
-                                modifier = Modifier.align(Alignment.TopEnd).size(16.dp),
-                                shape = CircleShape,
-                                color = Error
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.Notifications,
+                                contentDescription = "Notifications",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            if (unreadCount > 0) {
+                                val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
+                                    initialValue = 0.7f, targetValue = 1.1f,
+                                    animationSpec = infiniteRepeatable(
+                                        animation = tween(800, easing = FastOutSlowInEasing),
+                                        repeatMode = RepeatMode.Reverse
+                                    ), label = "pulse"
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset((-2).dp, 2.dp)
+                                        .size(18.dp)
+                                        .graphicsLayer { scaleX = pulse; scaleY = pulse }
+                                        .clip(CircleShape)
+                                        .background(Error),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Text(
                                         if (unreadCount > 9) "9+" else unreadCount.toString(),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = Color.White,
-                                        fontSize = 8.sp
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
@@ -288,27 +349,36 @@ private fun HomeHeroHeader(
                 }
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(24.dp))
 
-            // Search bar
+            // Premium search bar with glassmorphism
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .shadow(12.dp, RoundedCornerShape(Dimens.radiusMd), spotColor = Color.Black.copy(0.15f))
                     .clickable(onClick = onSearchClick),
-                shape = RoundedCornerShape(14.dp),
-                color = Color.White,
-                shadowElevation = 8.dp
+                shape = RoundedCornerShape(Dimens.radiusMd),
+                color = Color.White.copy(alpha = 0.95f),
+                shadowElevation = 0.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Icon(Icons.Default.Search, contentDescription = null, tint = Primary, modifier = Modifier.size(20.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Primary.copy(0.08f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Search, contentDescription = null, tint = Primary, modifier = Modifier.size(18.dp))
+                    }
                     Text(
                         text = "Search for electrician, plumber…",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Text4
                     )
                 }
             }
@@ -356,11 +426,22 @@ private fun PromoBannerCarousel() {
         PromoCardData("Weekend cleaning", "Fresh home, flexible slots", "Limited slots", Color(0xFF047857), Color(0xFF10B981)),
         PromoCardData("Festival offers", "Painter and cleaning deals", "Season special", Color(0xFF9D174D), Color(0xFFDB2777))
     )
+    val listState = rememberLazyListState()
+    // Auto-scroll effect
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(3000)
+            val current = listState.firstVisibleItemIndex
+            val next = if (current < banners.size - 1) current + 1 else 0
+            listState.animateScrollToItem(next)
+        }
+    }
     LazyRow(
+        state = listState,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        items(banners) { banner ->
+        items(banners, key = { it.title }) { banner ->
             PromoMiniCard(banner = banner)
         }
     }
@@ -445,27 +526,37 @@ private data class CategoryItem(
 
 @Composable
 private fun HomeCategoryItem(item: CategoryItem, onClick: () -> Unit) {
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.92f else 1f,
+        animationSpec = tween(150),
+        label = "cat_scale"
+    )
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
+            .scale(scale)
             .clickable(onClick = onClick)
             .padding(horizontal = 4.dp, vertical = 8.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(60.dp)
-                .clip(RoundedCornerShape(18.dp))
+                .size(64.dp)
+                .shadow(4.dp, RoundedCornerShape(20.dp), spotColor = item.iconColor.copy(0.15f))
+                .clip(RoundedCornerShape(20.dp))
                 .background(item.bgColor),
             contentAlignment = Alignment.Center
         ) {
             Icon(item.icon, null, tint = item.iconColor, modifier = Modifier.size(28.dp))
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(8.dp))
         Text(
             text = item.category.displayName,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1
+            style = MaterialTheme.typography.labelMedium,
+            color = Text2,
+            maxLines = 1,
+            fontWeight = FontWeight.Medium
         )
     }
 }
@@ -473,46 +564,74 @@ private fun HomeCategoryItem(item: CategoryItem, onClick: () -> Unit) {
 // ── Top Worker Horizontal Card ───────────────────────────────
 @Composable
 fun TopWorkerCard(worker: Worker, onClick: () -> Unit) {
+    var isPressed by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = tween(120),
+        label = "top_worker_scale"
+    )
+
     Surface(
-        modifier = Modifier.width(180.dp).clickable(onClick = onClick),
+        modifier = Modifier
+            .width(190.dp)
+            .scale(scale)
+            .clickable(onClick = onClick)
+            .shadow(6.dp, RoundedCornerShape(20.dp), spotColor = Primary.copy(0.1f)),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 4.dp,
-        tonalElevation = 2.dp
+        shadowElevation = 0.dp,
+        tonalElevation = 1.dp
     ) {
         Column {
-            // Colored banner
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(100.dp)
+                    .height(110.dp)
                     .background(Brush.linearGradient(listOf(Primary, PrimaryLight))),
                 contentAlignment = Alignment.Center
             ) {
-                AvatarComponent(imageUrl = worker.avatarUrl, name = worker.name, size = 64.dp)
-                // Rating badge
+                AvatarComponent(imageUrl = worker.avatarUrl, name = worker.name, size = 68.dp)
                 if (worker.rating > 0 && worker.reviewCount > 0) {
                     Surface(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0x99000000)
+                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xB3000000)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Icon(Icons.Filled.Star, null, tint = Color(0xFFFCD34D), modifier = Modifier.size(12.dp))
-                            Text(String.format("%.1f", worker.rating), style = MaterialTheme.typography.labelSmall, color = Color.White)
+                            Icon(Icons.Filled.Star, null, tint = StarColor, modifier = Modifier.size(12.dp))
+                            Text(
+                                String.format("%.1f", worker.rating),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
             }
-            Column(modifier = Modifier.padding(12.dp)) {
-                Text(worker.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(worker.category.displayName, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    worker.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    color = Text1
+                )
+                Text(
+                    worker.category.displayName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Text3
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     val priceText = if (worker.displayBaseCharge > 0) "~${CurrencyUtils.formatRupees(worker.displayBaseCharge)}" else "Book Now"
                     Text(
                         priceText,
@@ -521,18 +640,29 @@ fun TopWorkerCard(worker: Worker, onClick: () -> Unit) {
                         fontWeight = FontWeight.Bold
                     )
                     if (worker.distanceKm > 0) {
-                        Text("${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "${worker.distanceKm} km",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Text4
+                        )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = onClick,
-                    modifier = Modifier.fillMaxWidth().height(32.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(0.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Primary)
+                Spacer(Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(34.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Brush.horizontalGradient(listOf(Primary, PrimaryLight)))
+                        .clickable(onClick = onClick),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("Book", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                    Text(
+                        "Book Now",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
@@ -542,54 +672,7 @@ fun TopWorkerCard(worker: Worker, onClick: () -> Unit) {
 // ── Worker List Card ──────────────────────────────────────────
 @Composable
 fun WorkerListCard(worker: Worker, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp
-    ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            AvatarComponent(imageUrl = worker.avatarUrl, name = worker.name, size = 56.dp)
-            Spacer(Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(worker.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    if (worker.isVerified) {
-                        Icon(Icons.Filled.Verified, null, tint = Primary, modifier = Modifier.size(16.dp))
-                    }
-                }
-                Text(worker.category.displayName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                    if (worker.rating > 0 && worker.reviewCount > 0) {
-                        Icon(Icons.Filled.Star, null, tint = Warning, modifier = Modifier.size(14.dp))
-                        Text(" ${String.format("%.1f", worker.rating)} (${worker.reviewCount})", style = MaterialTheme.typography.labelSmall)
-                    }
-                    if (worker.distanceKm > 0) {
-                        Spacer(Modifier.width(8.dp))
-                        Text("• ${worker.distanceKm} km", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                if (worker.displayBaseCharge > 0) {
-                    Text(
-                        "~${CurrencyUtils.formatRupees(worker.displayBaseCharge)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = Primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text("starting", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    Text(
-                        "Book Now",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Primary,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
+    WorkerCard(worker = worker, onClick = onClick, modifier = modifier)
 }
 
 @Composable
@@ -599,11 +682,35 @@ fun SectionHeader(
     onAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(22.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Brush.verticalGradient(listOf(Primary, PrimaryLight)))
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Text1
+            )
+        }
         if (actionText != null && onAction != null) {
             TextButton(onClick = onAction) {
-                Text(actionText, style = MaterialTheme.typography.labelMedium, color = Primary)
+                Text(
+                    actionText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Primary,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
@@ -613,22 +720,16 @@ fun SectionHeader(
 @Composable
 fun WorkerCardSkeleton(compact: Boolean = false) {
     if (compact) {
-        Box(
-            modifier = Modifier.width(180.dp).height(200.dp).clip(RoundedCornerShape(20.dp)).background(shimmerBrush())
+        ShimmerCard(
+            modifier = Modifier.width(190.dp),
+            height = 210.dp,
+            shape = RoundedCornerShape(20.dp)
         )
     } else {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
-                .clip(RoundedCornerShape(16.dp)).background(shimmerBrush()).padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.size(56.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
-            Spacer(Modifier.width(14.dp))
-            Column {
-                Box(Modifier.width(120.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant))
-                Spacer(Modifier.height(6.dp))
-                Box(Modifier.width(80.dp).height(10.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant))
-            }
-        }
+        com.kaushalyakarnataka.app.ui.components.animations.ShimmerCard(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+            height = 100.dp,
+            shape = RoundedCornerShape(16.dp)
+        )
     }
 }

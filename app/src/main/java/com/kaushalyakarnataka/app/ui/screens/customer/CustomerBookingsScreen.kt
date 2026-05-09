@@ -1,5 +1,6 @@
 package com.kaushalyakarnataka.app.ui.screens.customer
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,14 +18,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.EventBusy
-import androidx.compose.material.icons.filled.HourglassTop
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.RateReview
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -56,6 +51,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,6 +74,9 @@ import com.kaushalyakarnataka.app.ui.theme.SecondaryDark
 import com.kaushalyakarnataka.app.ui.theme.SecondaryTint
 import com.kaushalyakarnataka.app.ui.theme.Success
 import com.kaushalyakarnataka.app.ui.theme.SuccessTint
+import com.kaushalyakarnataka.app.ui.theme.Text1
+import com.kaushalyakarnataka.app.ui.theme.Text3
+import com.kaushalyakarnataka.app.ui.theme.Text4
 import com.kaushalyakarnataka.app.ui.theme.Warning
 import com.kaushalyakarnataka.app.ui.theme.WarningTint
 import com.kaushalyakarnataka.app.utils.CurrencyUtils
@@ -230,14 +232,32 @@ fun CustomerBookingsScreen(
 private fun EmptyBookingsState() {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(
-                Icons.Default.EventBusy,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f),
-                modifier = Modifier.size(64.dp)
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Primary.copy(0.06f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.EventBusy,
+                    contentDescription = null,
+                    tint = Primary.copy(0.4f),
+                    modifier = Modifier.size(44.dp)
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            Text(
+                "No bookings here",
+                style = MaterialTheme.typography.titleLarge,
+                color = Text1
             )
-            Spacer(Modifier.height(12.dp))
-            Text("No bookings here", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Your bookings will appear once you hire a Kaushal",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Text3
+            )
         }
     }
 }
@@ -250,33 +270,72 @@ fun CustomerBookingCard(
     onRejectProposal: (() -> Unit)? = null,
     onLeaveReview: () -> Unit = {}
 ) {
-    val (statusColor, statusBg, statusLabel) = when (booking.status) {
-        BookingStatus.PENDING -> Triple(Warning, WarningTint, "Awaiting worker quotation")
-        BookingStatus.CONFIRMED -> Triple(Success, SuccessTint, "Booking accepted")
-        BookingStatus.IN_PROGRESS -> Triple(Primary, PrimaryTint, "Work in progress")
-        BookingStatus.COMPLETED -> Triple(Success, SuccessTint, "Completed successfully")
-        BookingStatus.CANCELLED -> Triple(Error, ErrorTint, "Declined")
-        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Triple(Secondary, SecondaryTint, "Final amount sent")
+    val status = when (booking.status) {
+        BookingStatus.PENDING ->
+            StatusStyle(Warning, WarningTint, Icons.Default.HourglassTop, "Awaiting quotation")
+        BookingStatus.CONFIRMED ->
+            StatusStyle(Success, SuccessTint, Icons.Default.CheckCircle, "Confirmed")
+        BookingStatus.IN_PROGRESS ->
+            StatusStyle(Primary, PrimaryTint, Icons.Default.Schedule, "In progress")
+        BookingStatus.COMPLETED ->
+            StatusStyle(Success, SuccessTint, Icons.Default.EmojiEvents, "Completed")
+        BookingStatus.CANCELLED ->
+            StatusStyle(Error, ErrorTint, Icons.Default.Cancel, "Declined")
+        BookingStatus.AWAITING_PAYMENT_CONFIRMATION ->
+            StatusStyle(Secondary, SecondaryTint, Icons.Default.Payments, "Awaiting payment")
     }
+    val statusColor = status.color
+    val statusBg = status.bg
+    val statusIcon = status.icon
+    val statusLabel = status.label
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(3.dp, RoundedCornerShape(20.dp), spotColor = statusColor.copy(0.06f)),
+        shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = 2.dp
+        tonalElevation = 1.dp
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
+            // ── Header row ──
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AvatarComponent(imageUrl = "", name = booking.workerName, size = 48.dp)
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(booking.workerName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text(booking.service, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(statusBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        statusIcon,
+                        null,
+                        tint = statusColor,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
-                Surface(shape = RoundedCornerShape(8.dp), color = statusBg) {
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        booking.service,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Text1
+                    )
+                    Text(
+                        booking.workerName,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Text3
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(statusBg)
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
                     Text(
                         statusLabel,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.labelSmall,
                         color = statusColor,
                         fontWeight = FontWeight.Bold
@@ -284,48 +343,59 @@ fun CustomerBookingCard(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(0.5f))
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            // ── Info row ──
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 InfoChip(icon = Icons.Default.Schedule, text = booking.timeSlot)
                 InfoChip(icon = Icons.Default.LocationOn, text = booking.address.shortAddress())
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
 
+            // ── Amount & Booking ID row ──
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Booking ID", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(booking.bookingCode, style = MaterialTheme.typography.labelMedium, color = Primary, fontWeight = FontWeight.Bold)
+                    Text("Booking ID", style = MaterialTheme.typography.labelSmall, color = Text4)
+                    Text(
+                        booking.bookingCode,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                Text(
-                    booking.primaryAmountText(),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Primary,
-                    fontWeight = FontWeight.ExtraBold
-                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(statusColor.copy(0.1f), statusColor.copy(0.05f))
+                            )
+                        )
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        booking.primaryAmountText(),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
             }
 
+            // ── Status-specific panels ──
             if (booking.status == BookingStatus.CONFIRMED) {
-                Spacer(Modifier.height(10.dp))
-                Surface(shape = RoundedCornerShape(8.dp), color = PrimaryTint, modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.HourglassTop, null, tint = Primary, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Waiting for worker to send the final amount",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
+                Spacer(Modifier.height(12.dp))
+                StatusPanel(
+                    icon = Icons.Default.HourglassTop,
+                    text = "Waiting for worker to send the final amount",
+                    tint = Primary,
+                    bg = PrimaryTint
+                )
             }
 
             if (
@@ -334,34 +404,51 @@ fun CustomerBookingCard(
                 onAcceptProposal != null &&
                 onRejectProposal != null
             ) {
-                Spacer(Modifier.height(10.dp))
-                Surface(shape = RoundedCornerShape(8.dp), color = SecondaryTint, modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = SecondaryTint,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Payments, null, tint = SecondaryDark, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Secondary.copy(0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    Icons.Default.Payments,
+                                    null,
+                                    tint = SecondaryDark,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(10.dp))
                             Text(
                                 "Final amount: ${CurrencyUtils.formatRupees(booking.counterAmount())}",
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.SemiBold,
                                 color = SecondaryDark
                             )
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedButton(
                                 onClick = onRejectProposal,
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Error),
+                                shape = RoundedCornerShape(10.dp)
                             ) {
-                                Icon(Icons.AutoMirrored.Filled.HelpOutline, null, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(4.dp))
                                 Text("Ask Clarification", fontWeight = FontWeight.Bold)
                             }
                             Button(
                                 onClick = onAcceptProposal,
                                 modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = Success)
+                                colors = ButtonDefaults.buttonColors(containerColor = Success),
+                                shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text("Accept & Confirm", fontWeight = FontWeight.Bold)
                             }
@@ -374,31 +461,30 @@ fun CustomerBookingCard(
                 booking.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION &&
                 booking.negotiationStatus == NegotiationStatus.CUSTOMER_PROPOSED
             ) {
-                Spacer(Modifier.height(10.dp))
-                Surface(shape = RoundedCornerShape(8.dp), color = PrimaryTint, modifier = Modifier.fillMaxWidth()) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.HourglassTop, null, tint = Primary, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Waiting for worker approval",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
+                Spacer(Modifier.height(12.dp))
+                StatusPanel(
+                    icon = Icons.Default.HourglassTop,
+                    text = "Waiting for worker approval",
+                    tint = Primary,
+                    bg = PrimaryTint
+                )
             }
 
             if (booking.status == BookingStatus.COMPLETED) {
-                Spacer(Modifier.height(10.dp))
-                Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                Spacer(Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Text(
                             "Initial labour: ${booking.initialAmountText()}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Text3
                         )
                         if (booking.finalAmount > 0) {
+                            Spacer(Modifier.height(4.dp))
                             Text(
                                 "Paid: ${CurrencyUtils.formatRupees(booking.finalAmount)}",
                                 style = MaterialTheme.typography.titleSmall,
@@ -408,13 +494,53 @@ fun CustomerBookingCard(
                         }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
-                OutlinedButton(onClick = onLeaveReview, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.RateReview, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Leave a Review")
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onLeaveReview,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.RateReview, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Leave a Review", fontWeight = FontWeight.SemiBold)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun StatusPanel(
+    icon: ImageVector,
+    text: String,
+    tint: Color,
+    bg: Color
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = bg,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(tint.copy(0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = tint, modifier = Modifier.size(18.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = tint,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
@@ -486,9 +612,17 @@ private fun LeaveReviewDialog(
 @Composable
 private fun InfoChip(icon: ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Primary.copy(0.06f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = Primary.copy(0.7f), modifier = Modifier.size(14.dp))
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = Text3)
     }
 }
 
@@ -521,6 +655,13 @@ private fun Booking.isWorkerCountered(): Boolean {
         counterAmount() > 0
 }
 
+
+private data class StatusStyle(
+    val color: Color,
+    val bg: Color,
+    val icon: ImageVector,
+    val label: String
+)
 
 private fun String.shortAddress(): String {
     return if (length > 25) "${take(25)}..." else this

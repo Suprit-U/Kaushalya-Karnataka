@@ -7,7 +7,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,12 +19,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.kaushalyakarnataka.app.data.local.ThemePreferenceManager
 
-// Theme state holder — inject at root level
-class ThemeState(initial: Boolean = false) {
+// Theme state holder — reads from DataStore, persists on toggle
+class ThemeState(
+    initial: Boolean = false,
+    private val preferenceManager: ThemePreferenceManager? = null
+) {
     var isDark by mutableStateOf(initial)
-    fun toggle() { isDark = !isDark }
+
+    suspend fun toggle() {
+        val newValue = !isDark
+        isDark = newValue
+        preferenceManager?.setDarkMode(newValue)
+    }
 }
+
 val LocalThemeState = compositionLocalOf { ThemeState() }
 
 private val LightColorScheme = lightColorScheme(
@@ -52,40 +64,61 @@ private val LightColorScheme = lightColorScheme(
 private val DarkColorScheme = darkColorScheme(
     primary              = PrimaryLight,
     onPrimary            = Color(0xFFF8FAFC),
-    primaryContainer     = Color(0xFF1D4ED8),
-    onPrimaryContainer   = Color(0xFFE0EAFF),
-    secondary            = Color(0xFFFF9A3D),
+    primaryContainer     = Color(0xFF1E40AF),
+    onPrimaryContainer   = Color(0xFFDBEAFE),
+    secondary            = Color(0xFFFB923C),
     onSecondary          = Color(0xFF2A1200),
-    secondaryContainer   = Color(0xFF7C2D12),
-    onSecondaryContainer = Color(0xFFFFE7D6),
-    background           = Color(0xFF0B1120),
-    onBackground         = Color(0xFFE5EDF8),
-    surface              = Color(0xFF141C2F),
-    onSurface            = Color(0xFFEAF1FA),
-    surfaceVariant       = Color(0xFF202B40),
-    onSurfaceVariant     = Color(0xFFB8C5D8),
+    secondaryContainer   = Color(0xFF9A3412),
+    onSecondaryContainer = Color(0xFFFFEDD5),
+    background           = DarkBackground,
+    onBackground         = DarkOnBackground,
+    surface              = DarkSurface,
+    onSurface            = DarkOnSurface,
+    surfaceVariant       = DarkSurfaceVariant,
+    onSurfaceVariant     = DarkOnSurfaceVariant,
     error                = Color(0xFFFF8A80),
     onError              = Color(0xFF330003),
     errorContainer       = Color(0xFF7F1D1D),
     onErrorContainer     = Color(0xFFFFDAD6),
-    outline              = Color(0xFF4A5870),
-    outlineVariant       = Color(0xFF2D3A50),
-    scrim                = Color(0xCC000000),
+    outline              = DarkOutline,
+    outlineVariant       = DarkOutlineVariant,
+    scrim                = Color(0xE6000000),
+    inverseSurface       = DarkInverseSurface,
+    inverseOnSurface     = DarkInverseOnSurface,
+    inversePrimary       = DarkInversePrimary,
+    surfaceTint          = PrimaryLight,
+    surfaceDim           = DarkSurfaceDim,
+    surfaceBright        = DarkSurfaceBright,
+    surfaceContainer     = DarkSurfaceContainer,
+    surfaceContainerHigh = DarkSurfaceContainerHigh,
+    surfaceContainerHighest = DarkSurfaceContainerHighest,
 )
 
 @Composable
 fun KaushalyaTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    themeState: ThemeState = remember { ThemeState(darkTheme) },
+    preferenceManager: ThemePreferenceManager? = null,
     content: @Composable () -> Unit
 ) {
+    // Read persisted preference; fallback to system default
+    val persistedDark by preferenceManager?.isDarkMode?.collectAsState(initial = darkTheme)
+        ?: remember { mutableStateOf(darkTheme) }
+
+    val themeState = remember(persistedDark, preferenceManager) {
+        ThemeState(persistedDark, preferenceManager)
+    }
+
+    // Sync state if preference changes externally
+    LaunchedEffect(persistedDark) {
+        themeState.isDark = persistedDark
+    }
+
     val colorScheme = if (themeState.isDark) DarkColorScheme else LightColorScheme
 
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.background.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !themeState.isDark
         }
     }

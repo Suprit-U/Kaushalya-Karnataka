@@ -1,7 +1,12 @@
 package com.kaushalyakarnataka.app.ui.screens.worker
 
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +17,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -70,7 +76,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -89,6 +98,7 @@ import com.kaushalyakarnataka.app.ui.components.AvatarComponent
 import com.kaushalyakarnataka.app.ui.components.NavDestination
 import com.kaushalyakarnataka.app.ui.components.WorkerBottomNav
 import com.kaushalyakarnataka.app.ui.components.WorkerNavDestination
+import com.kaushalyakarnataka.app.ui.theme.Border
 import com.kaushalyakarnataka.app.ui.theme.Error
 import com.kaushalyakarnataka.app.ui.theme.ErrorTint
 import com.kaushalyakarnataka.app.ui.theme.Primary
@@ -99,6 +109,9 @@ import com.kaushalyakarnataka.app.ui.theme.SecondaryDark
 import com.kaushalyakarnataka.app.ui.theme.SecondaryTint
 import com.kaushalyakarnataka.app.ui.theme.Success
 import com.kaushalyakarnataka.app.ui.theme.SuccessTint
+import com.kaushalyakarnataka.app.ui.theme.Text1
+import com.kaushalyakarnataka.app.ui.theme.Text3
+import com.kaushalyakarnataka.app.ui.theme.Text4
 import com.kaushalyakarnataka.app.ui.theme.Warning
 import com.kaushalyakarnataka.app.ui.theme.WarningTint
 import com.kaushalyakarnataka.app.utils.CurrencyUtils
@@ -269,43 +282,137 @@ private fun DashboardHeader(
     unreadCount: Int,
     onNotificationsClick: () -> Unit
 ) {
+    val infiniteTransition = rememberInfiniteTransition(label = "dash_orbs")
+    val orb1 by infiniteTransition.animateFloat(
+        initialValue = -6f, targetValue = 6f,
+        animationSpec = infiniteRepeatable(tween(5000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "dash_orb1"
+    )
+    val orb2 by infiniteTransition.animateFloat(
+        initialValue = 5f, targetValue = -5f,
+        animationSpec = infiniteRepeatable(tween(4000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "dash_orb2"
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(Color(0xFF0F2055), PrimaryLight)))
-            .padding(top = 20.dp, start = 20.dp, end = 20.dp, bottom = 32.dp)
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xFF0F2055), Primary, PrimaryLight)
+                ),
+                RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
+            )
+            .padding(top = 24.dp, start = 20.dp, end = 20.dp, bottom = 36.dp)
     ) {
+        // Floating orbs
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .offset(x = (-10).dp, y = (20 + orb1).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(0.05f))
+                .align(Alignment.TopStart)
+        )
+        Box(
+            modifier = Modifier
+                .size(50.dp)
+                .offset(x = (10).dp, y = (80 + orb2).dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(0.04f))
+                .align(Alignment.TopEnd)
+        )
+
         Column {
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Column {
-                    Text("Worker Dashboard", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(0.8f))
+                    val waveOffset by rememberInfiniteTransition(label = "dash_wave").animateFloat(
+                        initialValue = -2f, targetValue = 2f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1800, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ), label = "dash_wave"
+                    )
+                    Text(
+                        "Worker Dashboard",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(0.75f)
+                    )
                     val name = (workerState as? UiState.Success)?.data?.name?.split(" ")?.firstOrNull().orEmpty().ifBlank { "Kaushal" }
-                    Text(name, style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Hi, $name",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.graphicsLayer { translationY = waveOffset }
+                    )
                 }
-                Box(
-                    modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(0.15f)).clickable(onClick = onNotificationsClick),
-                    contentAlignment = Alignment.Center
+                Surface(
+                    onClick = onNotificationsClick,
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color = Color.White.copy(0.12f),
+                    shadowElevation = 0.dp
                 ) {
-                    Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.size(22.dp))
-                    if (unreadCount > 0) {
-                        Surface(modifier = Modifier.align(Alignment.TopEnd).size(16.dp), shape = CircleShape, color = Error) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(if (unreadCount > 9) "9+" else unreadCount.toString(), style = MaterialTheme.typography.labelSmall, color = Color.White, fontSize = 8.sp)
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Notifications, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        if (unreadCount > 0) {
+                            val pulse by rememberInfiniteTransition(label = "dash_pulse").animateFloat(
+                                initialValue = 0.7f, targetValue = 1.15f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(800, easing = FastOutSlowInEasing),
+                                    repeatMode = RepeatMode.Reverse
+                                ), label = "dash_pulse"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset((-2).dp, 2.dp)
+                                    .size(18.dp)
+                                    .graphicsLayer { scaleX = pulse; scaleY = pulse }
+                                    .clip(CircleShape)
+                                    .background(Error),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    if (unreadCount > 9) "9+" else unreadCount.toString(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
                 }
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(16.dp))
             if (earningsData is UiState.Success) {
                 val e = earningsData.data
-                Surface(shape = RoundedCornerShape(18.dp), color = Color.White.copy(alpha = 0.12f), modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("This Month's Earnings", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(0.75f))
-                        Spacer(Modifier.height(4.dp))
-                        Text(CurrencyUtils.formatRupees(e.thisMonthTotal), style = MaterialTheme.typography.displaySmall, color = Color.White, fontWeight = FontWeight.ExtraBold)
-                        Spacer(Modifier.height(10.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White.copy(alpha = 0.1f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Text(
+                            "This Month's Earnings",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.White.copy(0.75f)
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            CurrencyUtils.formatRupees(e.thisMonthTotal),
+                            style = MaterialTheme.typography.displaySmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             EarningChip(Icons.Default.CheckCircle, "${e.completedJobs} Done")
                             EarningChip(Icons.Default.Pending, "${e.pendingJobs} Pending")
                             if (e.averageRating > 0) {
@@ -324,24 +431,42 @@ private fun StatsStrip(
     pendingJobs: UiState<List<Booking>>,
     earningsData: UiState<EarningsData>
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
-        color = MaterialTheme.colorScheme.background
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .offset(y = (-16).dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            StatCard(Icons.AutoMirrored.Filled.Assignment, "Requests", (pendingJobs as? UiState.Success)?.data?.count { it.status == BookingStatus.PENDING }?.toString() ?: "-", Error, Modifier.weight(1f))
-            StatCard(Icons.Default.EmojiEvents, "Jobs", (earningsData as? UiState.Success)?.data?.completedJobs?.toString() ?: "-", Success, Modifier.weight(1f))
-            val rating = (earningsData as? UiState.Success)?.data?.averageRating ?: 0.0
-            if (rating > 0) {
-                StatCard(Icons.Default.Star, "Rating", String.format("%.1f", rating), Warning, Modifier.weight(1f))
-            } else {
-                StatCard(Icons.Default.Star, "Rating", "—", Warning.copy(alpha = 0.5f), Modifier.weight(1f))
-            }
-        }
+        val requests = (pendingJobs as? UiState.Success)?.data?.count { it.status == BookingStatus.PENDING }?.toString() ?: "0"
+        val jobs = (earningsData as? UiState.Success)?.data?.completedJobs?.toString() ?: "0"
+        val rating = (earningsData as? UiState.Success)?.data?.averageRating ?: 0.0
+        val ratingText = if (rating > 0) String.format("%.1f", rating) else "—"
+
+        PremiumStatCard(
+            icon = Icons.AutoMirrored.Filled.Assignment,
+            label = "Requests",
+            value = requests,
+            gradient = Brush.linearGradient(listOf(ErrorTint, Error.copy(0.08f))),
+            iconTint = Error,
+            modifier = Modifier.weight(1f)
+        )
+        PremiumStatCard(
+            icon = Icons.Default.EmojiEvents,
+            label = "Jobs Done",
+            value = jobs,
+            gradient = Brush.linearGradient(listOf(SuccessTint, Success.copy(0.08f))),
+            iconTint = Success,
+            modifier = Modifier.weight(1f)
+        )
+        PremiumStatCard(
+            icon = Icons.Default.Star,
+            label = "Rating",
+            value = ratingText,
+            gradient = Brush.linearGradient(listOf(WarningTint, Warning.copy(0.08f))),
+            iconTint = if (rating > 0) Warning else Text4,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -356,13 +481,51 @@ private fun EarningChip(icon: ImageVector, text: String) {
 }
 
 @Composable
-private fun StatCard(icon: ImageVector, label: String, value: String, color: Color, modifier: Modifier = Modifier) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 1.dp) {
-        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
-            Spacer(Modifier.height(4.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium, color = color, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+private fun PremiumStatCard(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    gradient: Brush,
+    iconTint: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .shadow(4.dp, RoundedCornerShape(16.dp), spotColor = iconTint.copy(0.1f)),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shadowElevation = 0.dp,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .background(gradient)
+                .padding(14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(iconTint.copy(0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null, tint = iconTint, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.titleLarge,
+                color = Text1,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = Text3,
+                maxLines = 1
+            )
         }
     }
 }
@@ -384,46 +547,137 @@ fun EnhancedJobCard(
         BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Triple(Secondary, SecondaryTint, "Awaiting Customer")
     }
 
-    Surface(modifier = modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface, shadowElevation = 2.dp) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = tween(120),
+        label = "job_card_scale"
+    )
+
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(scale)
+            .shadow(4.dp, RoundedCornerShape(20.dp), spotColor = statusColor.copy(0.08f))
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {}
+            ),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        border = BorderStroke(1.dp, statusColor.copy(0.08f))
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                AvatarComponent(imageUrl = "", name = booking.customerName, size = 44.dp)
-                Spacer(Modifier.width(12.dp))
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(statusBg),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        booking.customerName.take(1).uppercase(),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(booking.customerName, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    Text(booking.service, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        booking.customerName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Text1
+                    )
+                    Text(
+                        booking.service,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Text3
+                    )
                 }
-                Surface(shape = RoundedCornerShape(8.dp), color = statusBg) {
-                    Text(statusLabel, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall, color = statusColor, fontWeight = FontWeight.Bold)
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(statusBg)
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
+                ) {
+                    Text(
+                        statusLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(0.5f))
-            Spacer(Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                InfoChip(Icons.Default.Schedule, booking.timeSlot)
-                InfoChip(Icons.Default.LocationOn, booking.address.shortAddress())
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider(color = Border.copy(0.4f))
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                JobInfoChip(Icons.Default.Schedule, booking.timeSlot)
+                JobInfoChip(Icons.Default.LocationOn, booking.address.shortAddress())
             }
-            Spacer(Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(booking.dashboardAmountText(), style = MaterialTheme.typography.titleSmall, color = Primary, fontWeight = FontWeight.ExtraBold)
-                Text(booking.bookingCode, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(PrimaryTint)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        booking.dashboardAmountText(),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Primary,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                Text(
+                    booking.bookingCode,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Text4
+                )
             }
 
             when {
                 booking.status == BookingStatus.PENDING && onAccept != null && onDecline != null -> {
-                    Spacer(Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedButton(onClick = onDecline, modifier = Modifier.weight(1f), colors = ButtonDefaults.outlinedButtonColors(contentColor = Error)) {
-                            Text("Decline", fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(1.5.dp, Error.copy(0.3f), RoundedCornerShape(12.dp))
+                                .clickable(onClick = onDecline),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Decline", fontWeight = FontWeight.SemiBold, color = Error)
                         }
-                        Button(onClick = onAccept, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = Primary)) {
-                            Text("Accept", fontWeight = FontWeight.Bold)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Brush.horizontalGradient(listOf(Primary, PrimaryLight)))
+                                .clickable(onClick = onAccept),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("Accept", fontWeight = FontWeight.SemiBold, color = Color.White)
                         }
                     }
                 }
                 booking.status == BookingStatus.CONFIRMED && onSendFinalAmount != null -> {
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(14.dp))
                     WorkerSendFinalAmountCard(
                         booking = booking,
                         onSendFinalAmount = onSendFinalAmount
@@ -452,7 +706,7 @@ fun EnhancedJobCard(
             }
 
             if (booking.status == BookingStatus.COMPLETED && booking.finalAmount > 0) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
                 StatusMessage(
                     icon = Icons.Default.Payments,
                     text = "Paid ${CurrencyUtils.formatRupees(booking.finalAmount)}. Initial estimate ${booking.initialAmountText()}.",
@@ -699,10 +953,48 @@ private fun BookingsTab(
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Pending", "Active", "Completed", "All")
+    val tabCounts = listOf(
+        (pendingJobs as? UiState.Success)?.data?.count { it.status == BookingStatus.PENDING } ?: 0,
+        (allBookings as? UiState.Success)?.data?.count { it.status == BookingStatus.CONFIRMED || it.status == BookingStatus.AWAITING_PAYMENT_CONFIRMATION || it.status == BookingStatus.IN_PROGRESS } ?: 0,
+        (allBookings as? UiState.Success)?.data?.count { it.status == BookingStatus.COMPLETED } ?: 0,
+        (allBookings as? UiState.Success)?.data?.size ?: 0
+    )
 
     Column(modifier = modifier.fillMaxSize()) {
-        ScrollableTabRow(selectedTabIndex = selectedTab, containerColor = MaterialTheme.colorScheme.surface, contentColor = Primary, edgePadding = 16.dp) {
-            tabs.forEachIndexed { i, tab -> Tab(selected = selectedTab == i, onClick = { selectedTab = i }, text = { Text(tab, style = MaterialTheme.typography.labelLarge) }) }
+        // Premium tab row
+        ScrollableTabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = Primary,
+            edgePadding = 16.dp
+        ) {
+            tabs.forEachIndexed { i, tab ->
+                Tab(
+                    selected = selectedTab == i,
+                    onClick = { selectedTab = i },
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(tab, style = MaterialTheme.typography.labelLarge, fontWeight = if (selectedTab == i) FontWeight.Bold else FontWeight.Medium)
+                            if (tabCounts[i] > 0) {
+                                Spacer(Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (selectedTab == i) Primary else Primary.copy(0.1f))
+                                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                                ) {
+                                    Text(
+                                        "${tabCounts[i]}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (selectedTab == i) Color.White else Primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                )
+            }
         }
 
         val all = (allBookings as? UiState.Success)?.data ?: emptyList()
@@ -717,22 +1009,92 @@ private fun BookingsTab(
         if (isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Primary) }
         } else if (bookingsToShow.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.EventBusy, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(0.4f), modifier = Modifier.size(64.dp))
-                    Spacer(Modifier.height(10.dp))
-                    Text("No ${tabs[selectedTab].lowercase()} bookings", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(RoundedCornerShape(30.dp))
+                            .background(Primary.copy(0.06f))
+                            .border(1.dp, Primary.copy(0.1f), RoundedCornerShape(30.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.EventBusy, null, tint = Primary.copy(0.35f), modifier = Modifier.size(44.dp))
+                    }
+                    Spacer(Modifier.height(24.dp))
+                    Text(
+                        "No ${tabs[selectedTab].lowercase()} bookings",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Text1
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Jobs in this category will appear here",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Text3
+                    )
                 }
             }
         } else {
-            LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(bookingsToShow) { booking ->
-                    EnhancedJobCard(
-                        booking = booking,
-                        onAccept = if (booking.status == BookingStatus.PENDING) ({ onAccept(booking.id) }) else null,
-                        onDecline = if (booking.status == BookingStatus.PENDING) ({ onDecline(booking.id) }) else null,
-                        onSendFinalAmount = if (booking.status == BookingStatus.CONFIRMED) ({ amount -> onSendFinalAmount(booking.id, amount) }) else null
-                    )
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                items(bookingsToShow, key = { it.id }) { booking ->
+                    val isFirst = bookingsToShow.firstOrNull()?.id == booking.id
+                    val isLast = bookingsToShow.lastOrNull()?.id == booking.id
+                    val statusColor = when (booking.status) {
+                        BookingStatus.PENDING -> Warning
+                        BookingStatus.CONFIRMED, BookingStatus.IN_PROGRESS -> Primary
+                        BookingStatus.COMPLETED -> Success
+                        BookingStatus.CANCELLED -> Error
+                        BookingStatus.AWAITING_PAYMENT_CONFIRMATION -> Secondary
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        // Timeline column
+                        Column(
+                            modifier = Modifier.width(28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (!isFirst) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(2.dp)
+                                        .height(16.dp)
+                                        .background(statusColor.copy(0.3f))
+                                )
+                            } else {
+                                Spacer(Modifier.height(16.dp))
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(statusColor)
+                                    .border(2.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                            )
+                            if (!isLast) {
+                                Box(
+                                    modifier = Modifier
+                                        .width(2.dp)
+                                        .height(16.dp)
+                                        .background(statusColor.copy(0.3f))
+                                )
+                            } else {
+                                Spacer(Modifier.height(16.dp))
+                            }
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        EnhancedJobCard(
+                            booking = booking,
+                            onAccept = if (booking.status == BookingStatus.PENDING) ({ onAccept(booking.id) }) else null,
+                            onDecline = if (booking.status == BookingStatus.PENDING) ({ onDecline(booking.id) }) else null,
+                            onSendFinalAmount = if (booking.status == BookingStatus.CONFIRMED) ({ amount -> onSendFinalAmount(booking.id, amount) }) else null,
+                            modifier = Modifier.weight(1f).padding(bottom = 14.dp)
+                        )
+                    }
                 }
             }
         }
@@ -789,11 +1151,19 @@ private fun NotificationPreviewRow(notification: AppNotification) {
 }
 
 @Composable
-private fun InfoChip(icon: ImageVector, text: String) {
+private fun JobInfoChip(icon: ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Primary.copy(0.06f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, null, tint = Primary.copy(0.7f), modifier = Modifier.size(14.dp))
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.bodySmall, color = Text3)
     }
 }
 

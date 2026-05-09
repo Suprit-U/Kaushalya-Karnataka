@@ -44,6 +44,26 @@ val Text3           = Color(0xFF64748B)  // Subtext / captions
 val Text4           = Color(0xFF94A3B8)  // Placeholder / muted
 val TextInverse     = Color(0xFFFFFFFF)  // On dark backgrounds
 
+// --- Dark Mode Tokens (Premium AMOLED-friendly with rich tonal depth) ---
+val DarkBackground              = Color(0xFF02040A)  // Deepest black with micro blue tint
+val DarkOnBackground            = Color(0xFFF1F5F9)
+val DarkSurface                 = Color(0xFF0B1221)  // Rich navy surface — not flat gray
+val DarkOnSurface               = Color(0xFFF8FAFC)
+val DarkSurfaceVariant          = Color(0xFF141D2E)  // Elevated card surface
+val DarkOnSurfaceVariant        = Color(0xFF94A3B8)
+val DarkSurfaceDim              = Color(0xFF070D18)
+val DarkSurfaceBright           = Color(0xFF1A2744)
+val DarkSurfaceContainer        = Color(0xFF111B2E)
+val DarkSurfaceContainerHigh    = Color(0xFF16233A)
+val DarkSurfaceContainerHighest = Color(0xFF1C2D48)
+val DarkOutline                 = Color(0xFF2A3A52)
+val DarkOutlineVariant          = Color(0xFF1A2538)
+val DarkInverseSurface          = Color(0xFFE2E8F0)
+val DarkInverseOnSurface        = Color(0xFF0F172A)
+val DarkInversePrimary          = Color(0xFF1E3A8A)
+val DarkPrimaryTint             = Color(0xFF1E3A8A).copy(0.25f)
+val DarkCardBorder              = Color(0xFF1E3A5F).copy(0.4f)
+
 // --- Welcome screen gradient colors ---
 val WelcomeGradientStart  = Color(0xFF0F2055)
 val WelcomeGradientMiddle = Color(0xFF1E3A8A)
