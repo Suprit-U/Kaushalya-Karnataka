@@ -29,6 +29,28 @@ The app uses Firebase for backend authentication and NoSQL data storage (Firesto
 - **Verification & Certification**: Build trust with verified badges and government certification markers.
 - **Availability Toggle**: Control your working status with a simple online/offline switch.
 
+## 📸 App Screenshots
+
+| Onboarding & Registration | Login & Home Explore |
+|:---:|:---:|
+| ![Onboarding](Images/1.jpeg) | ![Home Explore](Images/2.jfif) |
+| **Onboarding & Registration Flow** - Displays the splash screen, role selection (Customer/Worker), and the account creation interface. | **Login & Home Explore** - Shows the customer login screen, search functionality with worker listings, and the main dashboard categories. |
+
+| Worker Search & Profile | Booking & AI Reviews |
+|:---:|:---:|
+| ![Worker Profile](Images/3.jfif) | ![AI Reviews](Images/4.jfif) |
+| **Worker Search & Profile** - Illustrates the "Top Rated Experts" discovery and a detailed view of a landscape gardener's profile. | **Booking Management & Reviews** - Showcases the user's upcoming and completed bookings, along with the AI-powered review summary feature. |
+
+| User Profile & Notifications | Worker Management |
+|:---:|:---:|
+| ![User Profile](Images/5.jfif) | ![Worker Management](Images/6.jfif) |
+| **User Profile & Notifications** - Displays the customer's personal profile settings and the real-time notification center. | **Worker Service Management** - Shows the interface for workers to manage their services, add new offerings, and update their work portfolio. |
+
+| Worker Booking Workflow | App Banner & Categories |
+|:---:|:---:|
+| ![Worker Workflow](Images/7.jfif) | ![Banner](Images/8.png) |
+| **Booking Workflow (Worker Side)** - Illustrates the worker's perspective for managing active bookings, including sending final amounts and status updates. | **Banner & Category View** - A wide-screen view of the application's homepage with promotional banners and service category icons. |
+
 ## 🏗 Architecture Overview
 
 The app follows the **MVVM (Model-View-ViewModel)** architectural pattern, enforcing a strict separation of concerns and a unidirectional data flow.
