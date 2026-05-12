@@ -1,6 +1,6 @@
 # Kaushalya Karnataka - Service Marketplace App
 
-![Kaushalya Karnataka](app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp)
+![Kaushalya Karnataka](logo.png)
 
 Kaushalya Karnataka is a modern, high-performance Android application designed to bridge the gap between skilled workers and customers in Karnataka. Built with Jetpack Compose and a robust MVVM architecture, the app provides a seamless experience for hiring experts, managing bookings, and tracking professional portfolios.
 
