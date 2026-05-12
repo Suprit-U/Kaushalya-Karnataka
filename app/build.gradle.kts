@@ -7,14 +7,25 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.google.services)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
-// Read API key from local.properties
-val localProperties = Properties().apply {
+// Read secrets from Secret/secrets.properties or local.properties
+val secretsProperties = Properties().apply {
+    val secretsFile = rootProject.file("Secret/secrets.properties")
     val localFile = rootProject.file("local.properties")
-    if (localFile.exists()) { load(localFile.inputStream()) }
+    if (secretsFile.exists()) { load(secretsFile.inputStream()) }
+    else if (localFile.exists()) { load(localFile.inputStream()) }
 }
-val openRouterApiKey: String = localProperties.getProperty("OPENROUTER_API_KEY", "")
+val openRouterApiKey: String = secretsProperties.getProperty("OPENROUTER_API_KEY", "")
+val supabaseUrl: String = secretsProperties.getProperty("SUPABASE_URL", "")
+val supabaseKey: String = secretsProperties.getProperty("SUPABASE_KEY", "")
+
+// Automatically copy google-services.json from Secret/ if it exists
+val secretGoogleServices = rootProject.file("Secret/google-services.json")
+if (secretGoogleServices.exists()) {
+    secretGoogleServices.copyTo(file("google-services.json"), overwrite = true)
+}
 
 android {
     namespace = "com.kaushalyakarnataka.app"
@@ -29,6 +40,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
         buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterApiKey\"")
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"$supabaseKey\"")
     }
 
     buildTypes {
@@ -81,6 +94,9 @@ dependencies {
 
     implementation(libs.supabase.storage)
     implementation(libs.ktor.client.android)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)

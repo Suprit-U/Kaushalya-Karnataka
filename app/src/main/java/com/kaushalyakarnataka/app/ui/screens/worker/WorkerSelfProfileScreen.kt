@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.kaushalyakarnataka.app.data.model.ServiceCategory
-import kotlinx.coroutines.launch
 import com.kaushalyakarnataka.app.ui.components.*
 import com.kaushalyakarnataka.app.ui.theme.*
 import com.kaushalyakarnataka.app.utils.UiState
@@ -40,7 +39,6 @@ fun WorkerSelfProfileScreen(
     LaunchedEffect(Unit) { viewModel.loadWorkerProfile() }
 
     val profileState by viewModel.workerState.collectAsState()
-    val themeState = LocalThemeState.current
     var showEditDialog by remember { mutableStateOf(false) }
     var showBioDialog by remember { mutableStateOf(false) }
     var showNotifDialog by remember { mutableStateOf(false) }
@@ -307,14 +305,6 @@ fun WorkerSelfProfileScreen(
                     item {
                         SectionBlock(title = "Settings") {
                             SettingsRow(Icons.Default.Notifications, "Notifications") { showNotifDialog = true }
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(0.4f))
-                            val scope = rememberCoroutineScope()
-                            SettingsSwitchRow(
-                                icon = if (themeState.isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-                                label = "Dark Mode",
-                                checked = themeState.isDark,
-                                onToggle = { scope.launch { themeState.toggle() } }
-                            )
                         }
                     }
 
@@ -466,41 +456,6 @@ private fun SettingsRow(icon: ImageVector, label: String, onClick: () -> Unit) {
         Spacer(Modifier.width(14.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium, color = Text1, modifier = Modifier.weight(1f))
         Icon(Icons.Default.ChevronRight, null, tint = Text4, modifier = Modifier.size(20.dp))
-    }
-}
-
-@Composable
-private fun SettingsSwitchRow(
-    icon: ImageVector,
-    label: String,
-    checked: Boolean,
-    onToggle: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Primary.copy(0.08f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, null, tint = Primary.copy(0.8f), modifier = Modifier.size(20.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = Text1, modifier = Modifier.weight(1f))
-        Switch(
-            checked = checked,
-            onCheckedChange = { onToggle() },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Primary,
-                checkedTrackColor = Primary.copy(0.5f),
-                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-            )
-        )
     }
 }
 

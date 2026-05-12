@@ -19,16 +19,12 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object SupabaseModule {
 
-    // Replace these with the actual keys from your Supabase dashboard or build config
-    private const val SUPABASE_URL = "https://ytuosxjwpvsxwtnoppjm.supabase.co"
-    private const val SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0dW9zeGp3cHZzeHd0bm9wcGptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwNTUxNDEsImV4cCI6MjA5MzYzMTE0MX0.VCOBQytyvMCWentMlmPE3ie2cA-0E7R5h9ILTKFSqEU"
-
     @Provides
     @Singleton
     fun provideSupabaseClient(): SupabaseClient {
         return createSupabaseClient(
-            supabaseUrl = SUPABASE_URL,
-            supabaseKey = SUPABASE_KEY
+            supabaseUrl = com.kaushalyakarnataka.app.BuildConfig.SUPABASE_URL,
+            supabaseKey = com.kaushalyakarnataka.app.BuildConfig.SUPABASE_KEY
         ) {
             install(Storage)
         }

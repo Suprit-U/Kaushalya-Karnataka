@@ -27,15 +27,15 @@ Current configured project:
 - Project URL: `https://ytuosxjwpvsxwtnoppjm.supabase.co`
 - Bucket: `kaushalya-storage`
 
-The anon public API key is currently configured in `SupabaseModule.kt`.
+The anon public API key is configured using `BuildConfig` populated from `Secret/secrets.properties`.
 
-Production recommendation: move the Supabase URL and anon key into build configuration instead of keeping them directly in source.
+Production recommendation: The project uses a secure `Secret/` directory approach to prevent committing secrets to version control.
 
 ## 1. Create or Verify the Supabase Project
 
 1. Open the Supabase dashboard.
 2. Select the project with ID `ytuosxjwpvsxwtnoppjm`, or create a new project if you are replacing the backend.
-3. If replacing the project, update `SUPABASE_URL` and `SUPABASE_KEY` in `SupabaseModule.kt`.
+3. If replacing the project, update `SUPABASE_URL` and `SUPABASE_KEY` in `Secret/secrets.properties`.
 
 ## 2. Create or Verify the Storage Bucket
 

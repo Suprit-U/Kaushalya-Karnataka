@@ -8,7 +8,7 @@ This guide explains the Firebase setup expected by the current Android app.
 
 The Android project is already wired for Firebase:
 
-- `app/google-services.json` exists.
+- `Secret/google-services.json` exists (automatically copied to `app/` during build).
 - Google Services Gradle plugin is applied.
 - Firebase Auth and Firestore dependencies are configured.
 - `FirebaseModule.kt` provides Firebase instances through Hilt.
@@ -22,7 +22,7 @@ The app builds successfully with:
 
 ## 1. Firebase Project
 
-Status: done for this local project if `app/google-services.json` belongs to your Firebase project.
+Status: done for this local project if `Secret/google-services.json` belongs to your Firebase project.
 
 Expected Firebase project name:
 
@@ -321,7 +321,7 @@ firebase deploy --only firestore:indexes
 
 ## 9. Troubleshooting
 
-- App fails on startup: verify `app/google-services.json` is present and matches `com.kaushalyakarnataka.app`.
+- App fails on startup: verify `Secret/google-services.json` is present and matches `com.kaushalyakarnataka.app`.
 - Login/sign-up fails: verify Authentication is enabled and the provider is configured.
 - Firestore reads/writes fail: verify Firestore exists and rules allow the current authenticated user.
 - **No notifications appearing**: Check Logcat for `NotificationRepository` tags. Ensure the notifications collection exists and documents have a `userId` field matching the current user's UID.

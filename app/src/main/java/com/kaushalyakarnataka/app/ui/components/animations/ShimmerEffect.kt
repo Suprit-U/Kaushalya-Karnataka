@@ -12,16 +12,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.kaushalyakarnataka.app.ui.theme.Surface2
-import com.kaushalyakarnataka.app.ui.theme.Surface3
+import androidx.compose.material3.MaterialTheme
 
 @Composable
 fun shimmerBrush(showShimmer: Boolean = true, targetValue: Float = 1000f): Brush {
     return if (showShimmer) {
+        val surfaceColor = MaterialTheme.colorScheme.surfaceVariant
         val shimmerColors = listOf(
-            Surface2.copy(alpha = 0.6f),
-            Surface3.copy(alpha = 0.3f),
-            Surface2.copy(alpha = 0.6f),
+            surfaceColor.copy(alpha = 0.6f),
+            surfaceColor.copy(alpha = 0.2f),
+            surfaceColor.copy(alpha = 0.6f),
         )
         val transition = rememberInfiniteTransition(label = "shimmer")
         val translateAnimation = transition.animateFloat(

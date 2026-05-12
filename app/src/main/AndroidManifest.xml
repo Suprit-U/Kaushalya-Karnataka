@@ -15,9 +15,9 @@
     <application
         android:name=".KaushalyaApp"
         android:allowBackup="false"
-        android:icon="@drawable/ic_kaushalya_app"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/ic_kaushalya_app"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.KaushalyaKarnataka">
 

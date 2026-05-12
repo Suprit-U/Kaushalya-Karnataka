@@ -51,7 +51,10 @@ fun WorkerProfileScreen(
     viewModel: WorkerProfileViewModel = hiltViewModel(),
     aiSummaryViewModel: AiSummaryViewModel = hiltViewModel()
 ) {
-    LaunchedEffect(workerId) { viewModel.loadWorkerProfile() }
+    LaunchedEffect(workerId) {
+        viewModel.loadWorkerProfile()
+        aiSummaryViewModel.reset()
+    }
 
     val context = LocalContext.current
     val profileState by viewModel.workerState.collectAsState()
@@ -189,7 +192,8 @@ fun WorkerProfileScreen(
                             if (rv.data.isNotEmpty()) {
                                 item {
                                     // Trigger AI summary generation when reviews are loaded
-                                    LaunchedEffect(rv.data) {
+                                    // Use review count as stable key to avoid recomposition loops
+                                    LaunchedEffect(workerId, rv.data.size) {
                                         aiSummaryViewModel.generateSummary(workerId, rv.data)
                                     }
                                     ProfileSection(title = "Reviews") {

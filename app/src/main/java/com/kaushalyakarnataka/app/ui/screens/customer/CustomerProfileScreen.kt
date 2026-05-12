@@ -8,7 +8,6 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -37,7 +36,6 @@ fun CustomerProfileScreen(
     authViewModel: AuthViewModel = hiltViewModel(),
     profileViewModel: ProfileViewModel = hiltViewModel()
 ) {
-    val themeState = LocalThemeState.current
     val profileState by profileViewModel.profileState.collectAsState()
     val updateState by profileViewModel.updateState.collectAsState()
     var showEditDialog by remember { mutableStateOf(false) }
@@ -182,21 +180,6 @@ fun CustomerProfileScreen(
                 }
             }
 
-            // Quick stats row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .offset(y = (-16).dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                CustomerStatCard(icon = Icons.AutoMirrored.Filled.EventNote, label = "Bookings", value = "--", modifier = Modifier.weight(1f))
-                CustomerStatCard(icon = Icons.Default.Star, label = "Reviews", value = "--", modifier = Modifier.weight(1f))
-                CustomerStatCard(icon = Icons.Default.Schedule, label = "Member Since", value = "2024", modifier = Modifier.weight(1f))
-            }
-
-            Spacer(Modifier.height(20.dp))
-
             // Account section
             ProfileSectionCard(title = "Account") {
                 ProfileMenuItem(Icons.Default.Person, "Personal Info") { showEditDialog = true }
@@ -207,19 +190,6 @@ fun CustomerProfileScreen(
             }
 
             Spacer(Modifier.height(12.dp))
-
-            // Appearance section
-            ProfileSectionCard(title = "Appearance") {
-                val scope = rememberCoroutineScope()
-                ProfileMenuSwitchItem(
-                    icon = if (themeState.isDark) Icons.Default.DarkMode else Icons.Default.LightMode,
-                    title = "Dark Mode",
-                    checked = themeState.isDark,
-                    onToggle = { scope.launch { themeState.toggle() } }
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
 
             // Logout
             Box(
@@ -460,27 +430,6 @@ private fun ProfileMenuItem(icon: ImageVector, title: String, onClick: () -> Uni
     }
 }
 
-@Composable
-private fun ProfileMenuSwitchItem(icon: ImageVector, title: String, checked: Boolean, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Primary.copy(0.08f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, null, tint = Primary.copy(0.8f), modifier = Modifier.size(20.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Text(title, style = MaterialTheme.typography.bodyMedium, color = Text1, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = { onToggle() }, colors = SwitchDefaults.colors(checkedTrackColor = Primary))
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditProfileDialog(
@@ -524,48 +473,3 @@ private fun EditProfileDialog(
     )
 }
 
-@Composable
-private fun CustomerStatCard(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .shadow(3.dp, RoundedCornerShape(16.dp), spotColor = Primary.copy(0.05f)),
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-        border = BorderStroke(1.dp, Border.copy(0.3f))
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Primary.copy(0.08f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, null, tint = Primary.copy(0.8f), modifier = Modifier.size(20.dp))
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(
-                value,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color = Text1,
-                maxLines = 1
-            )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = Text3,
-                maxLines = 1
-            )
-        }
-    }
-}

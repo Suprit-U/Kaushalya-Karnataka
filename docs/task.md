@@ -242,16 +242,42 @@ Last updated: 2026-05-06
 
 ## Phase 6: AI Review Summary (Customer Side)
 
-- [x] `app/build.gradle.kts` — **Secure API key storage**: Reads `OPENROUTER_API_KEY` from `local.properties` and injects into `BuildConfig` via `buildConfigField`. Never hardcoded in source.
+- [x] `app/build.gradle.kts` — **Secure API key storage**: Reads `OPENROUTER_API_KEY` from `local.properties` and injects into `BuildConfig` via `buildConfigField`. Added `kotlinx-serialization` plugin and dependencies (`ktor-client-content-negotiation`, `ktor-serialization-kotlinx-json`, `kotlinx-serialization-json`).
 - [x] `app/data/model/openrouter/OpenRouterModels.kt` — Data models for OpenRouter API: `OpenRouterRequest`, `Message`, `OpenRouterResponse`, `Choice`, `MessageContent`, `OpenRouterError`.
-- [x] `app/data/remote/OpenRouterService.kt` — Ktor-based HTTP client for OpenRouter API. Calls `openai/gpt-oss-120b` with system prompt enforcing 1-3 line summaries and no hallucinations. Uses `BuildConfig.OPENROUTER_API_KEY` in Authorization header.
-- [x] `app/data/repository/AiSummaryRepository.kt` — Repository with DataStore caching. 24-hour cache TTL via `longPreferencesKey`. Checks cache before API call. Falls back to API only if cache expired or missing. Minimum 2 reviews required.
-- [x] `app/viewmodel/AiSummaryViewModel.kt` — Hilt ViewModel managing `UiState<String>` for summary. `generateSummary()` triggers repository, `retry()` clears cache and regenerates.
-- [x] `app/ui/components/AiReviewSummaryCard.kt` — Premium summary card with gradient border, AI sparkle icon in glass container. Handles all states: shimmer loading (`ShimmerLine`), error with retry, success with fade animation. Supports both light and dark mode via `MaterialTheme` tokens.
-- [x] `app/ui/screens/customer/WorkerProfileScreen.kt` — Integrated `AiReviewSummaryCard` into Reviews section below rating summary. `LaunchedEffect` triggers generation when reviews load. Injected `AiSummaryViewModel` alongside existing `WorkerProfileViewModel`.
+- [x] `app/data/remote/OpenRouterService.kt` — **Fixed**: Ktor client with proper timeouts (30s request, 15s connect), HTTP status code handling (200, 401, 429, 400), safe response parsing with null checks, clear error messages. Calls `openai/gpt-oss-120b` with strict system prompt. Key never logged.
+- [x] `app/data/repository/AiSummaryRepository.kt` — DataStore caching with 24-hour TTL. Checks cache before API call. Minimum 2 reviews required.
+- [x] `app/viewmodel/AiSummaryViewModel.kt` — **Fixed**: Duplicate call prevention via `isGenerating` flag and `lastWorkerId`. Cache-first loading to avoid loading flash. `reset()` clears state on worker change.
+- [x] `app/ui/components/AiReviewSummaryCard.kt` — **Fixed dark mode**: Replaced hardcoded `Text1`/`Text2` with `MaterialTheme.colorScheme.onSurface` / `onSurfaceVariant`.
+- [x] `app/ui/screens/customer/WorkerProfileScreen.kt` — Integrated AI card. `LaunchedEffect(workerId, rv.data.size)` uses stable key to prevent recomposition loops. Calls `aiSummaryViewModel.reset()` on worker change.
+- [x] `ui/components/animations/ShimmerEffect.kt` — **Fixed dark mode**: Shimmer brush now uses `MaterialTheme.colorScheme.surfaceVariant` instead of hardcoded light colors.
+- [x] `ui/components/KaushalyaBottomNav.kt` / `WorkerBottomNav.kt` — **Fixed dark mode**: Unselected icon color uses `MaterialTheme.colorScheme.onSurfaceVariant` instead of hardcoded `Text3`.
+- [x] `ui/theme/Color.kt` — **Fixed dark mode**: Brightened `DarkOnSurfaceVariant` from `0xFF94A3B8` to `0xFFB8C5D6` for better contrast on dark surfaces.
 - [x] `app/di/AppModule.kt` — Added `@Binds` for `AiSummaryRepository`/`AiSummaryRepositoryImpl`.
-- [x] Build verified: `clean assembleDebug lintRelease` passes successfully.
+- [x] Build verified: `clean assembleDebug lintRelease` passes successfully (73 tasks, 5m 23s).
+
+## Phase 7: Dark Mode Removal
+
+- [x] `ui/theme/Theme.kt` — Removed `ThemeState`, `LocalThemeState`, `DarkColorScheme`, and `ThemePreferenceManager` dependency. `KaushalyaTheme` now uses light mode only.
+- [x] `MainActivity.kt` — Removed `ThemePreferenceManager` injection and parameter to `KaushalyaTheme`.
+- [x] `di/AppModule.kt` — Removed `ThemePreferenceManager` provider.
+- [x] `ui/screens/customer/CustomerProfileScreen.kt` — Removed "Appearance" section with dark mode toggle and `ProfileMenuSwitchItem` composable.
+- [x] `ui/screens/customer/HomeScreen.kt` — Removed theme toggle button from `HomeHeroHeader` and `isDark`/`onThemeToggle` parameters.
+- [x] `ui/screens/worker/WorkerSelfProfileScreen.kt` — Removed "Dark Mode" `SettingsSwitchRow` and `SettingsSwitchRow` composable.
+- [x] All `LocalThemeState` / `themeState` references removed across codebase.
+- [x] Build verified: `compileDebugKotlin` + `lintDebug` pass successfully.
+
+## Phase 16: Security, Cleanup & Public Readiness
+
+- [x] Create `Secret/` folder for sensitive configurations (git-ignored).
+- [x] Implement automated `google-services.json` copying in `app/build.gradle.kts`.
+- [x] Configure `BuildConfig` injection for all Supabase and OpenRouter credentials.
+- [x] Remove all hardcoded secrets from source code and markdown files.
+- [x] Add `.example` configuration templates for new developers.
+- [x] Rewrite `README.md` with comprehensive project and security documentation.
+- [x] Clean up unused files (`Design-Prototype.html`, `debug-artifacts/`).
+- [x] Verify build with new secure configuration.
 
 - [ ] Automated unit and UI tests.
 - [ ] Full localization pass.
 - [ ] Geo-location based worker filtering.
+

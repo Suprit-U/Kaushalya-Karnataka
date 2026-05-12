@@ -102,7 +102,7 @@ private fun WorkerNavItem(
         label = "worker_nav_scale"
     )
     val iconColor by animateColorAsState(
-        targetValue = if (isSelected) Color.White else Text3,
+        targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
         animationSpec = tween(300),
         label = "worker_nav_icon_color"
     )

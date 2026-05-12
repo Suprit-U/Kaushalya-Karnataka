@@ -168,6 +168,13 @@
 - **Icon scale**: `animateFloatAsState` from `1.0f → 1.15f` on selection with spring (`stiffness=400f, damping=0.7`).
 - **Spring physics**: Pill width uses `stiffness=320f, dampingRatio=0.75f`. Label expand uses `spring(stiffness=400f)`.
 - **Press feedback**: Scale to `0.92f` on press with spring.
+- **Dark mode fix**: Unselected icon color uses `MaterialTheme.colorScheme.onSurfaceVariant` instead of hardcoded `Text3` (`0xFF64748B`), ensuring visibility on dark backgrounds.
+
+### Dark Mode Refinements (Phase 6 Fixes)
+- **Critical issue found**: `Text1`/`Text2`/`Text3`/`Text4` semantic colors were hardcoded for light mode only, causing invisible text in dark mode across cards, navbars, shimmer, and AI summary.
+- **Fix strategy**: Updated critical components (`AiReviewSummaryCard`, `ShimmerEffect`, both navbars) to use `MaterialTheme.colorScheme.onSurface` / `onSurfaceVariant` instead of hardcoded tokens.
+- **DarkOnSurfaceVariant**: Brightened from `0xFF94A3B8` to `0xFFB8C5D6` for better readability on `DarkSurfaceVariant` (`0xFF141D2E`).
+- **Shimmer dark mode**: `shimmerBrush` now reads `MaterialTheme.colorScheme.surfaceVariant` dynamically instead of hardcoded `Surface2`/`Surface3`.
 
 ### Worker Dark Mode Toggle
 - **SettingsSwitchRow**: New composable using Material3 `Switch` with custom `SwitchDefaults.colors` (checkedThumb = Primary, checkedTrack = Primary.copy(0.5f)).
@@ -190,12 +197,16 @@
 - **local.properties**: `OPENROUTER_API_KEY` stored in gitignored `local.properties`.
 - **BuildConfig injection**: `app/build.gradle.kts` reads the key at build time via `Properties()` and injects into `BuildConfig.OPENROUTER_API_KEY` via `buildConfigField`. The key never appears in source code.
 
+### Build Setup (Critical Fix)
+- **Missing serialization**: Originally lacked `kotlinx-serialization` plugin and `ktor-client-content-negotiation` + `ktor-serialization-kotlinx-json` dependencies, causing `@Serializable` DTOs to fail and Ktor to be unable to parse JSON responses.
+- **Fix**: Added `alias(libs.plugins.kotlin.serialization)` to `app/build.gradle.kts` and added `ktor-client-content-negotiation`, `ktor-serialization-kotlinx-json`, `kotlinx-serialization-json` to dependencies.
+
 ### OpenRouter API Integration
-- **Ktor client**: `OpenRouterService` uses the existing `ktor-client-android` dependency.
-- **Model**: `openai/gpt-oss-120b` (free tier on OpenRouter).
-- **System prompt**: Enforces 1-3 line summaries, natural language, no hallucinations, only real review patterns.
-- **Review formatting**: Reviews formatted as `[★★★☆☆] comment text` for structured input.
-- **Headers**: `Authorization: Bearer {key}`, `HTTP-Referer`, `X-Title` for OpenRouter compliance.
+- **Ktor client**: `OpenRouterService` with Android engine, content negotiation (JSON with `ignoreUnknownKeys`), and `HttpTimeout` plugin.
+- **Timeouts**: 30s request, 15s connect, 30s socket — prevents indefinite hangs.
+- **HTTP status handling**: Explicit branches for 200 (OK), 400 (BadRequest with error body parsing), 401 (Unauthorized/invalid key), 429 (Rate limited), and fallback.
+- **Model**: `openai/gpt-oss-120b` with strict system prompt (1-3 lines, no hallucinations).
+- **Response parsing**: Safe null-checked extraction: `response.choices?.firstOrNull()?.message?.content?.trim()`. Validates minimum length (10 chars). Never logs the API key.
 
 ### DataStore Caching
 - **Cache key**: `stringPreferencesKey("summary_{workerId}")` for summary text, `longPreferencesKey("summary_ts_{workerId}")` for timestamp.
@@ -203,16 +214,23 @@
 - **Behavior**: Returns cached summary immediately if within TTL. Only calls API on cache miss or expiry.
 - **Minimum threshold**: Requires at least 2 reviews before attempting generation.
 
+### Duplicate Call Prevention
+- **AiSummaryViewModel** guards against duplicate/repeated API calls:
+  - `isGenerating` flag blocks concurrent requests.
+  - `lastWorkerId` prevents re-fetching for same worker if already successful.
+  - `reset()` clears state when navigating to a different worker profile.
+  - Cache-first check before showing `UiState.Loading` avoids loading flash.
+
 ### UI States (AiReviewSummaryCard)
 - **Loading**: `ShimmerLine` placeholders (2 lines) with shimmer animation.
 - **Success**: Fade-in text with gradient-bordered card, sparkle icon in glass container.
 - **Error (API)**: Warning icon + "Unable to generate summary" + Retry button.
 - **Error (not enough reviews)**: Warning icon + "Not enough reviews yet" (no retry).
-- **Dark mode**: Uses `MaterialTheme.colorScheme.surface`, `Text1`, `Text2`, `Primary` tokens for automatic adaptation.
+- **Dark mode**: Uses `MaterialTheme.colorScheme.onSurface` / `onSurfaceVariant` for text (previously used hardcoded light-mode `Text1`/`Text2` which were invisible in dark mode).
 
 ### ViewModel & Integration
-- **AiSummaryViewModel**: `@HiltViewModel` with `UiState<String>` exposed as `StateFlow`. Methods: `generateSummary(workerId, reviews)`, `retry(workerId, reviews)`, `loadCachedSummary(workerId)`.
-- **WorkerProfileScreen**: Injected alongside `WorkerProfileViewModel`. Card placed inside `ProfileSection(title = "Reviews")` below the rating summary row. `LaunchedEffect(rv.data)` triggers generation when reviews load.
+- **AiSummaryViewModel**: `@HiltViewModel` with `UiState<String>` exposed as `StateFlow`. Methods: `generateSummary(workerId, reviews)`, `retry(workerId, reviews)`, `reset()`.
+- **WorkerProfileScreen**: Injected alongside `WorkerProfileViewModel`. Card placed inside `ProfileSection(title = "Reviews")` below rating summary row. `LaunchedEffect(workerId, rv.data.size)` uses stable key to prevent recomposition loops. Calls `aiSummaryViewModel.reset()` on worker change.
 
 ## Phase 2: Premium Dark Mode & Navigation Overhaul
 

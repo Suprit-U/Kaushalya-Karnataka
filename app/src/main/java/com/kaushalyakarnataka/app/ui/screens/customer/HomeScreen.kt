@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
@@ -46,7 +45,6 @@ fun HomeScreen(
     notifViewModel: NotificationViewModel = hiltViewModel()
 ) {
     val topWorkersState by viewModel.topWorkersState.collectAsState()
-    val themeState = LocalThemeState.current
     val scrollState = rememberLazyListState()
     val unreadCount by notifViewModel.unreadCount.collectAsState()
     val notifications by notifViewModel.notifications.collectAsState()
@@ -68,11 +66,8 @@ fun HomeScreen(
         ) {
             // ── Hero Header ──
             item {
-                val scope = rememberCoroutineScope()
                 HomeHeroHeader(
                     onSearchClick = { onNavigateToSearch(null) },
-                    onThemeToggle = { scope.launch { themeState.toggle() } },
-                    isDark = themeState.isDark,
                     unreadCount = unreadCount,
                     onNotificationsClick = { showNotifications = true }
                 )
@@ -208,10 +203,8 @@ private fun HomeNotificationsDialog(
 @Composable
 private fun HomeHeroHeader(
     onSearchClick: () -> Unit,
-    onThemeToggle: () -> Unit,
     onNotificationsClick: () -> Unit,
-    unreadCount: Int,
-    isDark: Boolean
+    unreadCount: Int
 ) {
     // Single shared infinite transition for all hero animations
     val infiniteTransition = rememberInfiniteTransition(label = "hero_float")
@@ -285,23 +278,6 @@ private fun HomeHeroHeader(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // Theme toggle
-                    Surface(
-                        onClick = onThemeToggle,
-                        modifier = Modifier.size(42.dp),
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.12f),
-                        shadowElevation = 0.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = if (isDark) Icons.Filled.LightMode else Icons.Filled.DarkMode,
-                                contentDescription = "Toggle theme",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
                     // Notification
                     Surface(
                         onClick = onNotificationsClick,

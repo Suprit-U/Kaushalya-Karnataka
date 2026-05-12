@@ -50,12 +50,7 @@ fun KaushalyaBottomNav(
             .fillMaxWidth()
             .height(Dimens.bottomNavHeight)
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(Dimens.radiusFull),
-                spotColor = Primary.copy(0.08f),
-                ambientColor = Primary.copy(0.04f)
-            ),
+            .shadow(8.dp, RoundedCornerShape(Dimens.radiusFull), spotColor = Primary.copy(0.06f)),
         shape = RoundedCornerShape(Dimens.radiusFull),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp
@@ -63,7 +58,7 @@ fun KaushalyaBottomNav(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 6.dp),
+                .padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -94,7 +89,7 @@ private fun CustomerNavItem(
         label = "cust_nav_scale"
     )
     val iconColor by animateColorAsState(
-        targetValue = if (isSelected) Color.White else Text3,
+        targetValue = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
         animationSpec = tween(300),
         label = "cust_nav_icon_color"
     )
@@ -102,11 +97,6 @@ private fun CustomerNavItem(
         targetValue = if (isSelected) 106.dp else 44.dp,
         animationSpec = spring(stiffness = 320f, dampingRatio = 0.75f),
         label = "cust_nav_pill_width"
-    )
-    val iconRotation by animateFloatAsState(
-        targetValue = if (isSelected) 0f else 0f,
-        animationSpec = spring(stiffness = 300f, dampingRatio = 0.6f),
-        label = "cust_nav_rotation"
     )
     val iconScale by animateFloatAsState(
         targetValue = if (isSelected) 1.15f else 1f,
@@ -145,7 +135,6 @@ private fun CustomerNavItem(
                     .graphicsLayer {
                         scaleX = iconScale
                         scaleY = iconScale
-                        rotationZ = iconRotation
                     }
             )
             AnimatedVisibility(

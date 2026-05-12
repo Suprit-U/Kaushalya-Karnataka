@@ -12,8 +12,7 @@ The Kaushalya-Karnataka app follows an MVVM structure with a repository-based da
 - `gradle.properties`: JVM, AndroidX, Jetifier, Java home, and compileSdk warning configuration.
 - `app/build.gradle.kts`: Android app module configuration.
 - `app/proguard-rules.pro`: Project-specific R8 rules file referenced by release builds.
-- `app/google-services.json`: Firebase Android configuration.
-- `Design-Prototype.html`: Original visual/prototype reference.
+- `Secret/google-services.json`: Firebase Android configuration (copied to `app/` during build).
 
 ## Main App Package
 

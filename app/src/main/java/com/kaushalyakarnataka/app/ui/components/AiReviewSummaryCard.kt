@@ -62,7 +62,7 @@ fun AiReviewSummaryCard(
                     text = "AI Review Summary",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
-                    color = Text1
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -92,7 +92,7 @@ private fun AiSummaryContent(summary: String) {
         Text(
             text = summary,
             style = MaterialTheme.typography.bodyMedium,
-            color = Text2,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth()
         )
     }

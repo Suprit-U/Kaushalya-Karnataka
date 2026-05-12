@@ -12,7 +12,7 @@
 
     <style name="Theme.KaushalyaKarnataka.SplashScreen" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_kaushalya_app</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo</item>
         <item name="postSplashScreenTheme">@style/Theme.KaushalyaKarnataka</item>
     </style>
 </resources>
